@@ -134,6 +134,11 @@ impl Star {
             self.rand_pos(width, height);
             self.rand_distance();
         }
+        // If star gets too far, reset it
+        if self.distance >= FAR_PLANE {
+            self.rand_pos(width, height);
+            self.rand_distance();
+        }
 
         // Check visibility
         self.active = self.is_visible(width, height);
@@ -302,12 +307,20 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
 
     fn process_event(&mut self, event: &Event, info: &mut InfoElement<'s>) {
         match event {
-            Event::KeyPressed { code: Key::W, .. } => {
-                self.speed += 0.1;
+            Event::KeyPressed {
+                code: Key::W,
+                shift,
+                ..
+            } => {
+                self.speed += 0.1 * if *shift { 10.0 } else { 1.0 };
                 info.set_custom_info("speed", format_args!("{:.03}", self.speed));
             }
-            Event::KeyPressed { code: Key::S, .. } => {
-                self.speed -= 0.1;
+            Event::KeyPressed {
+                code: Key::S,
+                shift,
+                ..
+            } => {
+                self.speed -= 0.1 * if *shift { 10.0 } else { 1.0 };
                 info.set_custom_info("speed", format_args!("{:.03}", self.speed));
             }
             _ => (),
