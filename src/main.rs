@@ -1,20 +1,20 @@
 use sfml::{
-    graphics::{
-        glsl::Vec2, CircleShape, Color, CustomShape, Font, RectangleShape, RenderTarget,
-        RenderWindow, Shape, Transformable,
-    },
-    system::{sleep, Time, Vector2f, Vector2i},
-    window::{Event, Key, Style, VideoMode},
     SfResult,
+    graphics::{
+        CircleShape, Color, CustomShape, Font, RectangleShape, RenderTarget, RenderWindow, Shape,
+        Transformable, glsl::Vec2,
+    },
+    system::{Vector2f, Vector2i},
+    window::{Event, Key, Style, VideoMode},
 };
 use tracing::trace;
 
 use self::{
     counters::{Counters, MAX_FPS},
-    shapes::{hue_time, TriangleShape},
+    shapes::{TriangleShape, hue_time},
     ui::{
-        nativeui::elements::{clickeable::Clickable, UIElement},
         ComprehensiveUi,
+        nativeui::elements::{UIElement, clickeable::Clickable},
     },
 };
 
