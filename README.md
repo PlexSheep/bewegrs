@@ -17,7 +17,6 @@ bewegrs is a small examplary gui written with sfml in rust
 ## Deps
 
 ```bash
-apt install libsfml-dev build-essential cmake git \
-libx11-dev freeglut3-dev libxcb-image0-dev \
-libudev-dev libopenal-dev libsndfile1-dev libfreetype-dev
+apt update
+apt install libpthread-stubs0-dev libgl1-mesa-dev libx11-dev libx11-xcb-dev libxcb-image0-dev libxrandr-dev libxcb-randr0-dev libudev-dev libfreetype6-dev libglew-dev libjpeg8-dev libgpgme11-dev libsndfile1-dev libopenal-dev libjpeg62 libxcursor-dev cmake libclang-dev clang
 ```

@@ -21,6 +21,10 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpthread-stubs0-dev libgl1-mesa-dev libx11-dev libx11-xcb-dev libxcb-image0-dev libxrandr-dev libxcb-randr0-dev libudev-dev libfreetype6-dev libglew-dev libjpeg8-dev libgpgme11-dev libsndfile1-dev libopenal-dev libjpeg62 libxcursor-dev cmake libclang-dev clang
       - name: Run tests
         run: cargo test --all-features --workspace --all-targets
 
@@ -39,6 +43,10 @@ jobs:
         with:
           components: clippy,rustfmt
       - uses: Swatinem/rust-cache@v2
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpthread-stubs0-dev libgl1-mesa-dev libx11-dev libx11-xcb-dev libxcb-image0-dev libxrandr-dev libxcb-randr0-dev libudev-dev libfreetype6-dev libglew-dev libjpeg8-dev libgpgme11-dev libsndfile1-dev libopenal-dev libjpeg62 libxcursor-dev cmake libclang-dev clang
       - name: Clippy check and fix
         run: cargo clippy --fix --all-targets --all-features --workspace
       - name: Check formatting
@@ -46,7 +54,7 @@ jobs:
       - name: commit back to repository
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          # These defaults somehow do not work for me, so I've set them 
+          # These defaults somehow do not work for me, so I've set them
           # explicitly
           # The big number is the userid of the bot
           commit_user_name: github-actions[bot]
@@ -63,6 +71,10 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpthread-stubs0-dev libgl1-mesa-dev libx11-dev libx11-xcb-dev libxcb-image0-dev libxrandr-dev libxcb-randr0-dev libudev-dev libfreetype6-dev libglew-dev libjpeg8-dev libgpgme11-dev libsndfile1-dev libopenal-dev libjpeg62 libxcursor-dev cmake libclang-dev clang
       - name: Check documentation
         env:
           RUSTDOCFLAGS: -D warnings
