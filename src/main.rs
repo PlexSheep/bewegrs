@@ -1,5 +1,8 @@
 use sfml::{
-    graphics::{CircleShape, Color, CustomShape, RenderTarget, RenderWindow, Shape, Transformable},
+    graphics::{
+        glsl::Vec2, CircleShape, Color, CustomShape, Rect, RectangleShape, RenderTarget,
+        RenderWindow, Shape, Transformable,
+    },
     system::{sleep, Time},
     window::{Event, Key, Style, VideoMode},
     SfResult,
@@ -34,6 +37,10 @@ fn main() -> SfResult<()> {
     circle.set_outline_thickness(8.);
     circle.set_outline_color(Color::RED);
 
+    let mut backdrop = RectangleShape::new();
+    backdrop.set_size(Vec2::new(1000.0, 600.0));
+    backdrop.set_fill_color(Color::rgb(30, 20, 20));
+
     'mainloop: loop {
         while let Some(event) = window.poll_event() {
             match event {
@@ -58,6 +65,7 @@ fn main() -> SfResult<()> {
 
         window.clear(Color::BLACK);
 
+        window.draw(&backdrop);
         window.draw(&circle);
         window.draw(&triangle);
 
