@@ -1,10 +1,9 @@
 use bewegrs::{counters::Counters, setup, ui::ComprehensiveUi};
-use rand::prelude::*;
 use sfml::{
+    SfResult,
     graphics::{CircleShape, Color, FloatRect, RenderTarget, RenderWindow, Shape, Transformable},
     system::Vector2f,
     window::{Event, Key, Style, VideoMode},
-    SfResult,
 };
 use tracing::debug;
 
@@ -28,7 +27,7 @@ fn create_stars(count: usize, scale: f32, video: &VideoMode) -> Vec<Star> {
 
     let window_size =
         Vector2f::new(video.width as f32 / 2.0, video.height as f32 / 2.0) * NEAR_PLANE;
-    let pos = (-window_size * 0.25);
+    let pos = -window_size * 0.25;
     let dimensions = window_size * 0.5;
     let star_free_zone = FloatRect::new(pos.x, pos.y, dimensions.x, dimensions.y);
     debug!("no stars zone: {:?}", star_free_zone);

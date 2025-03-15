@@ -1,8 +1,8 @@
 use egui_sfml::SfEgui;
+use sfml::SfResult;
 use sfml::cpp::FBox;
 use sfml::graphics::{Font, RenderWindow};
 use sfml::window::{Event, VideoMode};
-use sfml::SfResult;
 
 use crate::counters::Counters;
 
@@ -65,7 +65,7 @@ impl<'s, const N: usize> ComprehensiveUi<'s, N> {
 
     pub fn add(&mut self, element: Box<dyn ComprehensiveElement<'s, N>>) {
         self.elements.push(element);
-        self.elements.sort_by(|a, b| a.z_level().cmp(&b.z_level()));
+        self.elements.sort_by_key(|a| a.z_level());
     }
 
     pub fn draw_with(&mut self, window: &mut FBox<RenderWindow>, counters: &Counters<N>) {

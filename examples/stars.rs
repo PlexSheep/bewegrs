@@ -1,12 +1,12 @@
 use sfml::{
+    SfResult,
     cpp::FBox,
     graphics::{
-        glsl::Vec2, CircleShape, Color, Drawable, Font, RectangleShape, RenderTarget, RenderWindow,
-        Shape, Transformable,
+        CircleShape, Color, Drawable, Font, RectangleShape, RenderTarget, RenderWindow, Shape,
+        Transformable, glsl::Vec2,
     },
     system::Vector2f,
     window::{Event, Key, Style, VideoMode},
-    SfResult,
 };
 use tracing::info;
 

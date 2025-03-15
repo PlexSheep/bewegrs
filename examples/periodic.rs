@@ -1,17 +1,17 @@
 use sfml::{
+    SfResult,
     graphics::{
-        glsl::Vec2, CircleShape, Color, CustomShape, Font, RectangleShape, RenderTarget,
-        RenderWindow, Shape, Transformable,
+        CircleShape, Color, CustomShape, Font, RectangleShape, RenderTarget, RenderWindow, Shape,
+        Transformable, glsl::Vec2,
     },
     window::{Event, Key, Style, VideoMode},
-    SfResult,
 };
 use tracing::info;
 
 use bewegrs::{
     counters::Counters,
     setup,
-    shapes::{hue_time, TriangleShape},
+    shapes::{TriangleShape, hue_time},
     ui::ComprehensiveUi,
 };
 
