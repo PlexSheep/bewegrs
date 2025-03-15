@@ -1,4 +1,3 @@
-use egui_sfml::SfEgui;
 use sfml::{
     graphics::{
         glsl::Vec2, CircleShape, Color, CustomShape, Font, RectangleShape, RenderTarget,
@@ -11,16 +10,19 @@ use sfml::{
 
 use self::{
     counters::{Counters, MAX_FPS},
-    nativeui::elements::{clickeable::Clickable, UIElement},
     shapes::{hue_time, TriangleShape},
+    ui::{
+        nativeui::elements::{clickeable::Clickable, UIElement},
+        ComprehensiveUi,
+    },
 };
 
 pub const WINDOW_WIDTH: u32 = 1000;
 pub const WINDOW_HEIGHT: u32 = 600;
 
 pub mod counters;
-pub mod nativeui;
 pub mod shapes;
+pub mod ui;
 
 fn main() -> SfResult<()> {
     let video = VideoMode::new(WINDOW_WIDTH, WINDOW_HEIGHT, 16);
@@ -28,7 +30,7 @@ fn main() -> SfResult<()> {
     let mut window = RenderWindow::new(video, "Custom shape", Style::DEFAULT, &Default::default())?;
     let mut counter = Counters::start()?;
     window.set_framerate_limit(MAX_FPS);
-    let mut gui = SfEgui::new(&window);
+    let mut gui = ComprehensiveUi::new(&window);
 
     let mut font = Font::new()?;
     font.load_from_memory_static(include_bytes!("../resources/sansation.ttf"))?;
@@ -52,9 +54,6 @@ fn main() -> SfResult<()> {
     clicker.shape.set_position((200., 300.));
     clicker.shape.set_outline_thickness(3.);
     clicker = clicker.with_text("hello world", &font, 64);
-
-    let mut message = String::new();
-    let mut messages = Vec::new();
 
     'mainloop: loop {
         while let Some(event) = window.poll_event() {
@@ -93,35 +92,14 @@ fn main() -> SfResult<()> {
         window.clear(Color::BLACK);
 
         // Step 3: Do an egui frame with the desired ui function
-        let di = gui
-            .run(&mut window, |_rw, ctx| {
-                let win = egui::Window::new("Hello egui-sfml!");
-                win.show(ctx, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label("Message");
-                        let te_re = ui.text_edit_singleline(&mut message);
-                        if ui.button("Send").clicked()
-                            || ui.input(|inp| inp.key_pressed(egui::Key::Enter))
-                        {
-                            messages.push(message.clone());
-                            te_re.request_focus();
-                            message.clear();
-                        }
-                    });
-                    for msg in &messages {
-                        ui.separator();
-                        ui.label(msg);
-                    }
-                });
-            })
-            .unwrap();
+        let di = gui.prepare_draw(&mut window);
         // Step 4: Draw
 
         window.draw(&backdrop);
         window.draw(&circle);
         window.draw(&triangle);
         window.draw(&clicker);
-        gui.draw(di, &mut window, None);
+        gui.draw(di, &mut window);
 
         counter.tick_done();
         window.display();
