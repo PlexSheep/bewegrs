@@ -1,12 +1,12 @@
 use sfml::{
-    SfResult,
     cpp::FBox,
     graphics::{
-        CircleShape, Color, Drawable, FloatRect, Font, RectangleShape, RenderTarget, RenderWindow,
-        Shape, Transformable,
+        Color, Drawable, FloatRect, Font, PrimitiveType, RenderStates, RenderTarget, RenderWindow,
+        Transformable, Vertex, VertexBuffer, VertexBufferUsage,
     },
     system::Vector2f,
     window::{Event, Key, Style, VideoMode},
+    SfResult,
 };
 use tracing::info;
 
@@ -16,15 +16,16 @@ use bewegrs::{
     ui::{ComprehensiveElement, ComprehensiveUi},
 };
 
-const MAX_FPS: usize = 30;
+const MAX_FPS: usize = 60;
 const BG: Color = Color::rgb(30, 20, 20);
-const STAR_AMOUNT: usize = 60000;
+const STAR_AMOUNT: usize = 500_000;
 
 // Star configuration
-const STAR_RADIUS: f32 = 50.0;
+const STAR_RADIUS: f32 = 30.0;
 const FAR_PLANE: f32 = 800.0;
 const NEAR_PLANE: f32 = 5.5;
 const SPEED: f32 = 1.0;
+const SPREAD: f32 = FAR_PLANE * 40.0;
 
 fn main() -> SfResult<()> {
     setup();
@@ -46,13 +47,9 @@ fn main() -> SfResult<()> {
 
     let mut gui = ComprehensiveUi::build(&window, &font, &video, &counter)?;
 
-    let stars = Stars::new(&font, &video, &counter, STAR_AMOUNT);
+    let stars = Stars::new(video, STAR_AMOUNT)?;
     gui.info.set_custom_info("stars", STAR_AMOUNT);
     gui.add(Box::new(stars));
-
-    let mut backdrop = RectangleShape::new();
-    backdrop.set_size((video.width as f32, video.height as f32));
-    backdrop.set_fill_color(BG);
 
     'mainloop: loop {
         while let Some(event) = window.poll_event() {
@@ -74,8 +71,6 @@ fn main() -> SfResult<()> {
         }
 
         window.clear(BG);
-
-        window.draw(&backdrop);
         gui.draw_with(&mut window, &counter);
 
         counter.frame_prepare_display();
@@ -84,33 +79,19 @@ fn main() -> SfResult<()> {
     Ok(())
 }
 
-struct Star<'s> {
-    distance: f32, // z-coordinate
-    // World-space position (centered around 0,0), this is not for the display
-    // but for calculations
-    position: Vector2f,
-    object: CircleShape<'s>,
+// Simple star data without the SFML object
+struct Star {
+    position: Vector2f, // World-space position (centered around 0,0)
+    distance: f32,      // z-coordinate
+    active: bool,       // Whether star is active/visible
 }
 
-impl Star<'_> {
-    const DIST_FAR: f32 = FAR_PLANE;
-    const DIST_NEAR: f32 = NEAR_PLANE;
-    const R_MAX: f32 = STAR_RADIUS;
-    const R_MIN: f32 = STAR_RADIUS * 0.8;
-    const SPEED: f32 = SPEED;
-    const SPREAD: f32 = Self::DIST_FAR * 40.0;
-
+impl Star {
     fn new(width: u32, height: u32) -> Self {
-        // Create circle shape with random radius
-        let r = rand::random_range(Self::R_MIN..Self::R_MAX);
-        let mut object = CircleShape::new(r, 8);
-        object.set_origin((r, r)); // Set origin to center of circle
-
-        // Create star with random world-space position and distance
-        let mut star = Self {
-            object,
+        let mut star = Star {
             position: Vector2f::new(0.0, 0.0),
             distance: 0.0,
+            active: true,
         };
 
         star.rand_pos(width, height);
@@ -119,7 +100,7 @@ impl Star<'_> {
     }
 
     fn rand_distance(&mut self) {
-        self.distance = rand::random_range(Self::DIST_NEAR..Self::DIST_FAR);
+        self.distance = rand::random_range(NEAR_PLANE..FAR_PLANE);
     }
 
     fn rand_pos(&mut self, width: u32, height: u32) {
@@ -129,13 +110,13 @@ impl Star<'_> {
         let star_free = FloatRect::new(
             width as f32 / -2.0,
             height as f32 / -2.0,
-            width as f32 * 0.95,
-            height as f32 * 0.95,
+            width as f32 * 0.90,
+            height as f32 * 0.90,
         );
         loop {
             self.position = Vector2f::new(
-                rand::random_range(-Self::SPREAD..Self::SPREAD),
-                rand::random_range(-Self::SPREAD..Self::SPREAD),
+                rand::random_range(-SPREAD..SPREAD),
+                rand::random_range(-SPREAD..SPREAD),
             ) * aspect_ratio;
             if !star_free.contains(self.position) {
                 break;
@@ -145,93 +126,170 @@ impl Star<'_> {
 
     fn update(&mut self, width: u32, height: u32) {
         // Decrease distance (move closer)
-        self.distance -= Self::SPEED;
+        self.distance -= SPEED;
 
         // If star gets too close, reset it
-        if self.distance <= Self::DIST_NEAR {
+        if self.distance <= NEAR_PLANE {
             self.rand_pos(width, height);
             self.rand_distance();
-            return;
         }
 
-        // Calculate perspective scale factor
-        let scale = Self::DIST_NEAR / self.distance;
+        // Check visibility
+        self.active = self.is_visible(width, height);
+    }
 
-        // Project position to screen space with perspective
+    fn is_visible(&self, width: u32, height: u32) -> bool {
+        // Calculate perspective scale factor
+        let scale = NEAR_PLANE / self.distance;
+
+        // Check if star is on screen and big enough to see
+        scale > 0.01
+    }
+
+    // Create vertices for this star (a quad made of 4 vertices)
+    fn create_vertices(&self, width: u32, height: u32, vertices: &mut [Vertex], index: usize) {
+        // Calculate perspective scale factor
+        let scale = NEAR_PLANE / self.distance;
+
+        // Depth ratio for color (farther stars are dimmer)
+        let depth_ratio = (self.distance - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
+        let brightness = ((1.0 - depth_ratio) * 255.0) as u8;
+
+        // Calculate projected screen position
         let screen_x = self.position.x * scale + width as f32 / 2.0;
         let screen_y = self.position.y * scale + height as f32 / 2.0;
-        self.object.set_position((screen_x, screen_y));
 
-        // Scale size based on distance
-        self.object.set_scale((scale, scale));
+        // Calculate radius based on distance
+        let radius = STAR_RADIUS * scale;
 
-        // Adjust brightness based on distance
-        let depth_ratio = (self.distance - Self::DIST_NEAR) / (Self::DIST_FAR - Self::DIST_NEAR);
-        let brightness = ((1.0 - depth_ratio) * 255.0) as u8;
-        self.object
-            .set_fill_color(Color::rgb(brightness, brightness, brightness));
+        // Create the 4 vertices of the quad (one star = 4 vertices)
+        let i = index * 4;
+
+        // If star is active, create a visible quad
+        if self.active {
+            let color = Color::rgb(brightness, brightness, brightness);
+
+            // Top-left vertex
+            vertices[i].position = Vector2f::new(screen_x - radius, screen_y - radius);
+            vertices[i].color = color;
+
+            // Top-right vertex
+            vertices[i + 1].position = Vector2f::new(screen_x + radius, screen_y - radius);
+            vertices[i + 1].color = color;
+
+            // Bottom-right vertex
+            vertices[i + 2].position = Vector2f::new(screen_x + radius, screen_y + radius);
+            vertices[i + 2].color = color;
+
+            // Bottom-left vertex
+            vertices[i + 3].position = Vector2f::new(screen_x - radius, screen_y + radius);
+            vertices[i + 3].color = color;
+        }
+        // If star is not active, create an invisible quad
+        else {
+            let transparent = Color::rgba(0, 0, 0, 0); // Fully transparent
+
+            // Set all 4 vertices to be invisible (zero size, transparent)
+            for j in 0..4 {
+                vertices[i + j].position = Vector2f::new(0.0, 0.0);
+                vertices[i + j].color = transparent;
+            }
+        }
     }
 }
 
-impl Drawable for Star<'_> {
-    fn draw<'a: 'shader, 'texture, 'shader, 'shader_texture>(
-        &'a self,
-        target: &mut dyn RenderTarget,
-        states: &sfml::graphics::RenderStates<'texture, 'shader, 'shader_texture>,
-    ) {
-        self.object.draw(target, states);
-    }
+struct Stars {
+    stars: Vec<Star>,
+    vertex_buffer: FBox<VertexBuffer>,
+    vertices: Vec<Vertex>,
+    video: VideoMode,
 }
 
-struct Stars<'s> {
-    stars: Vec<Star<'s>>,
-    video: &'s VideoMode,
-}
-
-impl<'s> Stars<'s> {
-    pub fn new<const N: usize>(
-        font: &'s FBox<Font>,
-        video: &'s VideoMode,
-        counters: &Counters<N>,
-        amount: usize,
-    ) -> Self {
+impl Stars {
+    pub fn new(video: VideoMode, amount: usize) -> SfResult<Self> {
+        // Create stars
         let mut stars: Vec<Star> = Vec::with_capacity(amount);
-        for _i in 0..amount {
+        for _ in 0..amount {
             stars.push(Star::new(video.width, video.height));
         }
-        stars.sort_unstable_by(|a, b| {
-            a.distance
-                .partial_cmp(&b.distance)
-                .expect("could not compare distances")
-                .reverse()
-        });
 
-        Stars { stars, video }
+        // Sort stars by distance (farthest first for proper rendering)
+        stars.sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());
+
+        // Create a vertex array to store our quad data (4 vertices per star)
+        let mut vertices = vec![Vertex::default(); amount * 4];
+
+        // Initialize all vertices as transparent (this is crucial)
+        for vertex in &mut vertices {
+            vertex.color = Color::rgba(0, 0, 0, 0); // Fully transparent
+        }
+
+        // Create the vertex buffer
+        let mut vertex_buffer =
+            VertexBuffer::new(PrimitiveType::QUADS, amount * 4, VertexBufferUsage::DYNAMIC)?;
+
+        // Initialize vertex data
+        for (i, star) in stars.iter().enumerate() {
+            star.create_vertices(video.width, video.height, &mut vertices, i);
+        }
+
+        // Update the vertex buffer with initial data
+        vertex_buffer.update(&vertices, 0)?;
+
+        Ok(Stars {
+            stars,
+            vertex_buffer,
+            vertices,
+            video,
+        })
+    }
+
+    fn update_vertices(&mut self) -> SfResult<()> {
+        // Clear all vertices by setting them to transparent
+        for vertex in &mut self.vertices {
+            vertex.color = Color::rgba(0, 0, 0, 0); // Fully transparent
+        }
+
+        // Sort stars by distance (farthest first for proper overlay)
+        self.stars
+            .sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());
+
+        // Update all vertices in the vertices array
+        for (i, star) in self.stars.iter().enumerate() {
+            star.create_vertices(self.video.width, self.video.height, &mut self.vertices, i);
+        }
+
+        // Update the vertex buffer with the new vertex data
+        // This updates all vertices, including the "invisible" ones
+        self.vertex_buffer.update(&self.vertices, 0)?;
+
+        Ok(())
     }
 }
 
-impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars<'s> {
-    fn update(&mut self, counters: &Counters<N>) {
+impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
+    fn update(&mut self, _counters: &Counters<N>) {
+        // Update star positions
         for star in self.stars.iter_mut() {
             star.update(self.video.width, self.video.height);
         }
-        self.stars.sort_unstable_by(|a, b| {
-            a.distance
-                .partial_cmp(&b.distance)
-                .expect("could not compare distances")
-                .reverse()
-        });
+
+        // Update vertex buffer
+        if let Err(e) = self.update_vertices() {
+            eprintln!("Error updating vertex buffer: {:?}", e);
+        }
     }
+
     fn draw_with(
         &mut self,
         sfml_w: &mut FBox<RenderWindow>,
-        egui_w: &mut egui_sfml::SfEgui,
-        counters: &Counters<N>,
+        _egui_w: &mut egui_sfml::SfEgui,
+        _counters: &Counters<N>,
     ) {
-        for star in self.stars.iter() {
-            sfml_w.draw(star);
-        }
+        // Draw all stars with a single draw call
+        sfml_w.draw(&*self.vertex_buffer);
     }
+
     fn z_level(&self) -> u16 {
         0
     }
