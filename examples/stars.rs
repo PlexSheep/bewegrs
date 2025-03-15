@@ -1,8 +1,8 @@
 use sfml::{
     cpp::FBox,
     graphics::{
-        Color, Drawable, FloatRect, Font, PrimitiveType, RenderStates, RenderTarget, RenderWindow,
-        Transformable, Vertex, VertexBuffer, VertexBufferUsage,
+        Color, FloatRect, Font, PrimitiveType, RenderTarget, RenderWindow, Vertex, VertexBuffer,
+        VertexBufferUsage,
     },
     system::Vector2f,
     window::{Event, Key, Style, VideoMode},
@@ -13,18 +13,18 @@ use tracing::info;
 use bewegrs::{
     counters::Counters,
     setup,
-    ui::{ComprehensiveElement, ComprehensiveUi},
+    ui::{elements::info::InfoElement, ComprehensiveElement, ComprehensiveUi},
 };
 
 const MAX_FPS: usize = 60;
 const BG: Color = Color::rgb(30, 20, 20);
-const STAR_AMOUNT: usize = 500_000;
+const STAR_AMOUNT: usize = 200_000;
+const DEFAULT_SPEED: f32 = 0.8;
 
 // Star configuration
 const STAR_RADIUS: f32 = 30.0;
 const FAR_PLANE: f32 = 800.0;
 const NEAR_PLANE: f32 = 5.5;
-const SPEED: f32 = 1.0;
 const SPREAD: f32 = FAR_PLANE * 40.0;
 
 fn main() -> SfResult<()> {
@@ -48,7 +48,8 @@ fn main() -> SfResult<()> {
     let mut gui = ComprehensiveUi::build(&window, &font, &video, &counter)?;
 
     let stars = Stars::new(video, STAR_AMOUNT)?;
-    gui.info.set_custom_info("stars", STAR_AMOUNT);
+    gui.info.set_custom_info("stars", stars.stars.len());
+    gui.info.set_custom_info("speed", stars.speed);
     gui.add(Box::new(stars));
 
     'mainloop: loop {
@@ -124,9 +125,9 @@ impl Star {
         }
     }
 
-    fn update(&mut self, width: u32, height: u32) {
+    fn update(&mut self, width: u32, height: u32, speed: f32) {
         // Decrease distance (move closer)
-        self.distance -= SPEED;
+        self.distance -= speed;
 
         // If star gets too close, reset it
         if self.distance <= NEAR_PLANE {
@@ -138,11 +139,13 @@ impl Star {
         self.active = self.is_visible(width, height);
     }
 
-    fn is_visible(&self, width: u32, height: u32) -> bool {
+    fn is_visible(&self, _width: u32, _height: u32) -> bool {
         // Calculate perspective scale factor
         let scale = NEAR_PLANE / self.distance;
 
-        // Check if star is on screen and big enough to see
+        // we could also check if the star is in the viewport
+
+        // Check if star is big enough to see
         scale > 0.01
     }
 
@@ -203,6 +206,7 @@ struct Stars {
     vertex_buffer: FBox<VertexBuffer>,
     vertices: Vec<Vertex>,
     video: VideoMode,
+    speed: f32,
 }
 
 impl Stars {
@@ -241,6 +245,7 @@ impl Stars {
             vertex_buffer,
             vertices,
             video,
+            speed: DEFAULT_SPEED,
         })
     }
 
@@ -268,10 +273,10 @@ impl Stars {
 }
 
 impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
-    fn update(&mut self, _counters: &Counters<N>) {
+    fn update(&mut self, _counters: &Counters<N>, _info: &mut InfoElement<'s>) {
         // Update star positions
         for star in self.stars.iter_mut() {
-            star.update(self.video.width, self.video.height);
+            star.update(self.video.width, self.video.height, self.speed);
         }
 
         // Update vertex buffer
@@ -285,6 +290,7 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
         sfml_w: &mut FBox<RenderWindow>,
         _egui_w: &mut egui_sfml::SfEgui,
         _counters: &Counters<N>,
+        _info: &mut InfoElement<'s>,
     ) {
         // Draw all stars with a single draw call
         sfml_w.draw(&*self.vertex_buffer);
@@ -292,5 +298,19 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
 
     fn z_level(&self) -> u16 {
         0
+    }
+
+    fn process_event(&mut self, event: &Event, info: &mut InfoElement<'s>) {
+        match event {
+            Event::KeyPressed { code: Key::W, .. } => {
+                self.speed += 0.1;
+                info.set_custom_info("speed", format_args!("{:.03}", self.speed));
+            }
+            Event::KeyPressed { code: Key::S, .. } => {
+                self.speed -= 0.1;
+                info.set_custom_info("speed", format_args!("{:.03}", self.speed));
+            }
+            _ => (),
+        }
     }
 }
