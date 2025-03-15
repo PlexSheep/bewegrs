@@ -4,7 +4,7 @@ use sfml::window::Event;
 
 pub mod clickeable;
 
-pub trait UIElement<'s>: Drawable {
+pub trait NativeElement<'s>: Drawable {
     fn set_position(&mut self, position: impl Into<Vector2f>);
     fn position(&self) -> Vector2f;
     fn contains_point(&self, point: impl Into<Vector2f>) -> bool;

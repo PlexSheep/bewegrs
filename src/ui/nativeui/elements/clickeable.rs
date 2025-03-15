@@ -6,7 +6,7 @@ use sfml::{
 
 use crate::shapes::RectRoundShape;
 
-use super::UIElement;
+use super::NativeElement;
 
 pub struct Clickable<'s> {
     pub shape: CustomShape<'s>,
@@ -121,7 +121,7 @@ impl Drawable for Clickable<'_> {
     }
 }
 
-impl<'s> UIElement<'s> for Clickable<'s> {
+impl<'s> NativeElement<'s> for Clickable<'s> {
     fn set_position(&mut self, position: impl Into<Vector2f>) {
         self.shape.set_position(position);
 

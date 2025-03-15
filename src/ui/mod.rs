@@ -1,53 +1,53 @@
-use egui_sfml::{DrawInput, SfEgui};
+use egui_sfml::SfEgui;
 use sfml::cpp::FBox;
-use sfml::graphics::RenderWindow;
-use sfml::window::Event;
+use sfml::graphics::{Font, RenderWindow};
+use sfml::window::{Event, Key, VideoMode};
+use sfml::SfResult;
 
 use crate::counters::Counters;
 
+use self::elements::info::InfoElement;
+
+pub mod elements;
 pub mod nativeui;
 
-#[derive(Default)]
-struct MetaWindowData {
-    input: String,
-    messages: Vec<String>,
+pub struct ComprehensiveUi<'s> {
+    egui_window: SfEgui,
+    info_element: InfoElement<'s>,
+    video: VideoMode,
+    pub font: &'s FBox<Font>,
 }
 
-pub struct ComprehensiveUi {
-    pub egui_window: SfEgui,
-}
-
-impl ComprehensiveUi {
+impl<'s> ComprehensiveUi<'s> {
     pub fn add_event(&mut self, event: &Event) {
         self.egui_window.add_event(event);
-    }
 
-    pub fn new(window: &FBox<RenderWindow>) -> Self {
-        Self {
-            egui_window: SfEgui::new(window),
+        match event {
+            Event::KeyPressed { code: Key::F10, .. } => self.info_element.next_type(),
+            _ => (),
         }
     }
 
-    pub fn prepare_draw(
-        &mut self,
-        window: &mut FBox<RenderWindow>,
-        counters: &Counters,
-    ) -> DrawInput {
-        self.egui_window
-            .run(window, |_rw, ctx| {
-                let win = egui::Window::new("Info");
-                win.show(ctx, |ui| {
-                    Self::info_win(ctx, ui, counters);
-                });
-            })
-            .unwrap()
+    pub fn build(
+        window: &FBox<RenderWindow>,
+        font: &'s FBox<Font>,
+        video: VideoMode,
+    ) -> SfResult<Self> {
+        let gui = Self {
+            video,
+            egui_window: SfEgui::new(window),
+            info_element: InfoElement::new(font, &video),
+            font,
+        };
+        Ok(gui)
     }
 
-    pub fn draw(&mut self, di: DrawInput, window: &mut FBox<RenderWindow>) {
-        self.egui_window.draw(di, window, None);
+    pub fn draw_with(&mut self, window: &mut FBox<RenderWindow>, counters: &Counters) {
+        self.info_element
+            .draw_with(window, &mut self.egui_window, counters)
     }
 
-    fn info_win(_ctx: &egui::Context, ui: &mut egui::Ui, counters: &Counters) {
-        ui.label(&counters.text);
+    pub fn update_slow(&mut self, counters: &Counters) {
+        self.info_element.update_slow(counters);
     }
 }
