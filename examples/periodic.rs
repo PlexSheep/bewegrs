@@ -9,7 +9,7 @@ use sfml::{
 };
 use tracing::{info, trace};
 
-use self::{
+use bewegrs::{
     counters::{Counters, MAX_FPS},
     shapes::{hue_time, TriangleShape},
     ui::{
@@ -17,10 +17,6 @@ use self::{
         ComprehensiveUi,
     },
 };
-
-pub mod counters;
-pub mod shapes;
-pub mod ui;
 
 fn setup() {
     // construct a subscriber that prints formatted traces to stdout
