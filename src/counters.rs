@@ -8,13 +8,9 @@ use tracing::warn;
 
 pub type Ringbuffer<T, const SIZE: usize> = ConstGenericRingBuffer<T, SIZE>;
 
-pub const MAX_FPS: u64 = 60;
-pub const MAX_FPS_USIZE: usize = MAX_FPS as usize;
-pub const MS_PER_FRAME: f32 = 1000.0 / MAX_FPS as f32;
-
 /// lazy fields get updated every [MAX_FPS] frames
 #[derive(Debug)]
-pub struct Counters {
+pub struct Counters<const MAX_FPS: usize> {
     /// frame counter
     pub frames: u64,
     /// frame counter lazy
@@ -24,14 +20,17 @@ pub struct Counters {
     /// seconds counter lazy
     pub l_seconds: f32,
     pub frame_time_pre: f32,
-    pub frame_times: Ringbuffer<f32, MAX_FPS_USIZE>,
+    pub frame_times: Ringbuffer<f32, MAX_FPS>,
     /// actually keeps track of time
     pub clock: FBox<Clock>,
 
     pub text: String,
 }
 
-impl Counters {
+impl<const MAX_FPS: usize> Counters<MAX_FPS> {
+    pub const MS_PER_FRAME: f32 = 1000.0 / MAX_FPS as f32;
+    pub const MAX_FPS_U64: u64 = MAX_FPS as u64;
+
     pub fn start() -> SfResult<Self> {
         let mut c = Counters {
             clock: Clock::start()?,
@@ -59,7 +58,7 @@ impl Counters {
             self.text,
             "time per frame: {:02.2}ms / {:02.2}ms",
             self.a_frame_time(),
-            MS_PER_FRAME
+            Self::MS_PER_FRAME
         )
         .expect("could not write to text buffer");
     }
@@ -68,7 +67,7 @@ impl Counters {
         self.seconds = self.clock.elapsed_time().as_seconds();
         self.frames += 1;
 
-        if self.frames % MAX_FPS == 0 || self.frames == 1 {
+        if self.frames % Self::MAX_FPS_U64 == 0 || self.frames == 1 {
             self.update_text();
             self.l_seconds = self.seconds;
             self.l_frames = self.frames;

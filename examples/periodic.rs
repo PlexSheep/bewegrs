@@ -9,11 +9,13 @@ use sfml::{
 use tracing::info;
 
 use bewegrs::{
-    counters::{Counters, MAX_FPS},
+    counters::Counters,
     setup,
     shapes::{hue_time, TriangleShape},
     ui::ComprehensiveUi,
 };
+
+const MAX_FPS: usize = 60;
 
 fn main() -> SfResult<()> {
     setup();
@@ -26,7 +28,7 @@ fn main() -> SfResult<()> {
         Style::DEFAULT | Style::FULLSCREEN,
         &Default::default(),
     )?;
-    let mut counter = Counters::start()?;
+    let mut counter = Counters::<MAX_FPS>::start()?;
     window.set_framerate_limit(MAX_FPS as u32);
 
     let mut font = Font::new()?;
@@ -63,7 +65,8 @@ fn main() -> SfResult<()> {
 
         counter.frame_start();
 
-        if counter.frames % MAX_FPS == 1 {
+        gui.update(&counter);
+        if counter.frames % MAX_FPS as u64 == 1 {
             gui.update_slow(&counter)
         }
 
