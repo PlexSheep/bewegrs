@@ -1,9 +1,8 @@
 use sfml::{
     graphics::{
-        glsl::Vec2, CircleShape, Color, CustomShape, Rect, RectangleShape, RenderTarget,
-        RenderWindow, Shape, Transformable,
+        glsl::Vec2, CircleShape, Color, CustomShape, RectangleShape, RenderTarget, RenderWindow,
+        Shape, Transformable,
     },
-    system::{sleep, Time},
     window::{Event, Key, Style, VideoMode},
     SfResult,
 };
@@ -13,12 +12,15 @@ use self::{
     shapes::{hue_time, TriangleShape},
 };
 
+pub const WINDOW_WIDTH: u32 = 1000;
+pub const WINDOW_HEIGHT: u32 = 600;
+
 pub mod counters;
 pub mod shapes;
 
 fn main() -> SfResult<()> {
     let mut window = RenderWindow::new(
-        VideoMode::new(1000, 600, 1),
+        VideoMode::new(WINDOW_WIDTH, WINDOW_HEIGHT, 1),
         "Custom shape",
         Style::DEFAULT,
         &Default::default(),
@@ -38,7 +40,7 @@ fn main() -> SfResult<()> {
     circle.set_outline_color(Color::RED);
 
     let mut backdrop = RectangleShape::new();
-    backdrop.set_size(Vec2::new(1000.0, 600.0));
+    backdrop.set_size(Vec2::new(WINDOW_WIDTH as f32, WINDOW_HEIGHT as f32));
     backdrop.set_fill_color(Color::rgb(30, 20, 20));
 
     'mainloop: loop {
