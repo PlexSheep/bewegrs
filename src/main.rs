@@ -19,12 +19,9 @@ pub mod counters;
 pub mod shapes;
 
 fn main() -> SfResult<()> {
-    let mut window = RenderWindow::new(
-        VideoMode::new(WINDOW_WIDTH, WINDOW_HEIGHT, 1),
-        "Custom shape",
-        Style::DEFAULT,
-        &Default::default(),
-    )?;
+    let video = VideoMode::new(WINDOW_WIDTH, WINDOW_HEIGHT, 16);
+
+    let mut window = RenderWindow::new(video, "Custom shape", Style::DEFAULT, &Default::default())?;
     let mut counter = Counters::start()?;
     window.set_framerate_limit(MAX_FPS);
 
