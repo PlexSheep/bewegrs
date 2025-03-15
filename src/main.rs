@@ -3,7 +3,7 @@ use sfml::{
         glsl::Vec2, CircleShape, Color, CustomShape, Font, RectangleShape, RenderTarget,
         RenderWindow, Shape, Transformable,
     },
-    system::{Vector2f, Vector2i},
+    system::{sleep, Time, Vector2f, Vector2i},
     window::{Event, Key, Style, VideoMode},
     SfResult,
 };
@@ -74,7 +74,7 @@ fn main() -> SfResult<()> {
             }
         }
 
-        counter.tick();
+        counter.frame_start();
         let scale = counter.seconds.cos().abs();
 
         triangle.set_rotation(counter.seconds.sin().abs() * 360.0);
@@ -91,9 +91,7 @@ fn main() -> SfResult<()> {
 
         window.clear(Color::BLACK);
 
-        // Step 3: Do an egui frame with the desired ui function
         let di = gui.prepare_draw(&mut window);
-        // Step 4: Draw
 
         window.draw(&backdrop);
         window.draw(&circle);
@@ -101,7 +99,7 @@ fn main() -> SfResult<()> {
         window.draw(&clicker);
         gui.draw(di, &mut window);
 
-        counter.tick_done();
+        counter.frame_prepare_display();
         window.display();
     }
     Ok(())

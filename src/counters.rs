@@ -1,12 +1,13 @@
 use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
-use sfml::SfResult;
 use sfml::cpp::FBox;
 use sfml::system::Clock;
+use sfml::SfResult;
 
 pub type Ringbuffer<T, const SIZE: usize> = ConstGenericRingBuffer<T, SIZE>;
 
 pub const MAX_FPS: u32 = 60;
 pub const MAX_FPS_USIZE: usize = MAX_FPS as usize;
+pub const MS_PER_FRAME: f32 = 1000.0 / MAX_FPS as f32;
 
 /// lazy fields get updated every [MAX_FPS] frames
 #[derive(Debug)]
@@ -19,8 +20,7 @@ pub struct Counters {
     pub seconds: f32,
     /// seconds counter lazy
     pub l_seconds: f32,
-    /// seconds from frame start to tick end for all frames of the second, so before the rendered
-    /// stuff is made to be displayed
+    pub frame_time_pre: f32,
     pub frame_times: Ringbuffer<f32, MAX_FPS_USIZE>,
     /// actually keeps track of time
     pub clock: FBox<Clock>,
@@ -34,10 +34,11 @@ impl Counters {
             frames: 0,
             seconds: 0.0,
             l_seconds: 0.0,
+            frame_time_pre: 0.0,
             frame_times: Ringbuffer::new(),
         })
     }
-    pub fn tick(&mut self) {
+    pub fn frame_start(&mut self) {
         self.seconds = self.clock.elapsed_time().as_seconds();
         self.frames += 1;
 
@@ -48,7 +49,7 @@ impl Counters {
             println!(
                 "time per frame: {}ms / {}ms",
                 self.a_frame_time(),
-                1000.0 / MAX_FPS as f32
+                MS_PER_FRAME
             );
             self.l_seconds = self.seconds;
             self.l_frames = self.frames;
@@ -76,7 +77,7 @@ impl Counters {
         self.frame_times.iter().sum::<f32>() / self.frame_times.len() as f32
     }
 
-    pub fn tick_done(&mut self) {
+    pub fn frame_prepare_display(&mut self) {
         self.frame_times
             .push((self.clock.elapsed_time().as_seconds() - self.seconds) * 1000.0);
     }
