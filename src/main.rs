@@ -3,6 +3,7 @@ use sfml::{
         glsl::Vec2, CircleShape, Color, CustomShape, Font, RectangleShape, RenderTarget,
         RenderWindow, Shape, Transformable,
     },
+    system::{Vector2f, Vector2i},
     window::{Event, Key, Style, VideoMode},
     SfResult,
 };
@@ -10,7 +11,7 @@ use sfml::{
 use self::{
     counters::{Counters, MAX_FPS},
     shapes::{hue_time, RectRoundShape, TriangleShape},
-    ui::elements::clickeable::Clickable,
+    ui::elements::{clickeable::Clickable, UIElement},
 };
 
 pub const WINDOW_WIDTH: u32 = 1000;
@@ -57,7 +58,14 @@ fn main() -> SfResult<()> {
                 | Event::KeyPressed {
                     code: Key::Escape, ..
                 } => break 'mainloop,
-                _ => {}
+                Event::MouseButtonPressed { button: _, x, y } => {
+                    let mouse_pos: Vector2i = (x, y).into();
+                    let mouse_posf: Vector2f = (x as f32, y as f32).into();
+                    if clicker.contains_point(mouse_posf) {
+                        clicker.handle_event(&event, mouse_pos);
+                    }
+                }
+                _ => (),
             }
         }
 
@@ -71,6 +79,10 @@ fn main() -> SfResult<()> {
 
         circle.set_scale(scale);
         circle.set_outline_color(Color::RED);
+
+        if counter.seconds > 10.0 {
+            clicker.set_position((300.0, 100.0));
+        }
 
         window.clear(Color::BLACK);
 

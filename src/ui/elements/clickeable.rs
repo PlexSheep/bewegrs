@@ -1,12 +1,15 @@
 use sfml::{
     graphics::{
-        Color, CustomShape, Drawable, Font, RenderTarget, RenderWindow, Shape, Text, Transformable,
+        Color, CustomShape, Drawable, Font, Image, RenderTarget, RenderWindow, Shape, Text,
+        Transformable,
     },
     system::{Vector2f, Vector2i},
     window::Event,
 };
 
 use crate::shapes::RectRoundShape;
+
+use super::UIElement;
 
 pub struct Clickable<'s> {
     pub shape: CustomShape<'s>,
@@ -23,7 +26,7 @@ impl<'s> Clickable<'s> {
         // Set default colors
         shape.set_fill_color(Color::rgb(80, 80, 80));
         shape.set_outline_color(Color::rgb(120, 120, 120));
-        shape.set_outline_thickness(2.0);
+        shape.set_outline_thickness(4.0);
 
         Clickable {
             shape,
@@ -51,30 +54,8 @@ impl<'s> Clickable<'s> {
         self
     }
 
-    pub fn set_position(&mut self, position: Vector2f) {
-        self.shape.set_position(position);
-
-        // Update text position if it exists
-        if let Some(text) = &mut self.text {
-            let shape_bounds = self.shape.global_bounds();
-            text.set_position((
-                shape_bounds.left + shape_bounds.width / 2.0,
-                shape_bounds.top + shape_bounds.height / 2.0 - 5.0,
-            ));
-        }
-    }
-
-    pub fn contains_point(&self, point: Vector2i) -> bool {
-        let bounds = self.shape.global_bounds();
-
-        point.x as f32 >= bounds.left
-            && point.x as f32 <= bounds.left + bounds.width
-            && point.y as f32 >= bounds.top
-            && point.y as f32 <= bounds.top + bounds.height
-    }
-
     // Returns true if clicked (pressed and released on the element)
-    pub fn update(&mut self, event: &Event, mouse_pos: Vector2i) -> bool {
+    pub fn update(&mut self, event: &Event, mouse_pos: impl Into<Vector2f>) -> bool {
         let contains = self.contains_point(mouse_pos);
         let old_hovered = self.is_hovered;
         let old_pressed = self.is_pressed;
@@ -140,5 +121,39 @@ impl Drawable for Clickable<'_> {
         if let Some(text) = self.text.as_ref() {
             text.draw(target, states);
         }
+    }
+}
+
+impl<'s> UIElement<'s> for Clickable<'s> {
+    fn set_position(&mut self, position: impl Into<Vector2f>) {
+        self.shape.set_position(position);
+
+        // Update text position if it exists
+        if let Some(text) = &mut self.text {
+            let shape_bounds = self.shape.global_bounds();
+            text.set_position((
+                shape_bounds.left + shape_bounds.width / 2.0,
+                shape_bounds.top + shape_bounds.height / 2.0 - 5.0,
+            ));
+        }
+    }
+
+    fn position(&self) -> Vector2f {
+        self.shape.position()
+    }
+
+    fn contains_point(&self, point: impl Into<Vector2f>) -> bool {
+        let bounds = self.shape.global_bounds();
+        let point: Vector2f = point.into();
+
+        point.x >= bounds.left
+            && point.x <= bounds.left + bounds.width
+            && point.y >= bounds.top
+            && point.y <= bounds.top + bounds.height
+    }
+
+    fn handle_event(&mut self, event: &Event, mouse_pos: Vector2i) -> bool {
+        println!("I got clicked");
+        true
     }
 }
