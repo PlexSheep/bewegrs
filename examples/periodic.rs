@@ -3,39 +3,17 @@ use sfml::{
         glsl::Vec2, CircleShape, Color, CustomShape, Font, RectangleShape, RenderTarget,
         RenderWindow, Shape, Transformable,
     },
-    system::{Vector2f, Vector2i},
     window::{Event, Key, Style, VideoMode},
     SfResult,
 };
-use tracing::{info, trace};
+use tracing::info;
 
 use bewegrs::{
     counters::{Counters, MAX_FPS},
+    setup,
     shapes::{hue_time, TriangleShape},
-    ui::{
-        nativeui::elements::{clickeable::Clickable, NativeElement},
-        ComprehensiveUi,
-    },
+    ui::ComprehensiveUi,
 };
-
-fn setup() {
-    // construct a subscriber that prints formatted traces to stdout
-    let subscriber = tracing_subscriber::fmt()
-        .with_max_level(
-            #[cfg(debug_assertions)]
-            tracing::Level::TRACE,
-            #[cfg(not(debug_assertions))]
-            tracing::Level::INFO,
-        )
-        .without_time()
-        .with_file(false)
-        .with_target(false)
-        .with_writer(std::io::stderr)
-        .finish();
-    // use that subscriber to process traces emitted after this point
-    tracing::subscriber::set_global_default(subscriber).expect("could not setup logger");
-    trace!("set up the logger");
-}
 
 fn main() -> SfResult<()> {
     setup();
@@ -54,7 +32,7 @@ fn main() -> SfResult<()> {
     let mut font = Font::new()?;
     font.load_from_memory_static(include_bytes!("../resources/sansation.ttf"))?;
 
-    let mut gui = ComprehensiveUi::build(&window, &font, video, &counter)?;
+    let mut gui = ComprehensiveUi::build(&window, &font, &video, &counter)?;
 
     let mut triangle = CustomShape::new(Box::new(TriangleShape));
     triangle.set_position((400., 300.));

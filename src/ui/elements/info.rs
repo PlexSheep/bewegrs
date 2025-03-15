@@ -2,10 +2,11 @@ use egui_sfml::{DrawInput, SfEgui};
 use sfml::cpp::FBox;
 use sfml::graphics::{Color, Font, RenderTarget, RenderWindow, Text, Transformable};
 use sfml::system::Vector2f;
-use sfml::window::VideoMode;
+use sfml::window::{Key, VideoMode};
 use tracing::debug;
 
 use crate::counters::Counters;
+use crate::ui::ComprehensiveElement;
 
 #[derive(Default)]
 pub enum InfoElementType {
@@ -31,6 +32,8 @@ pub struct InfoElement<'s> {
 }
 
 impl<'s> InfoElement<'s> {
+    pub const DEFAULT_NAME: &'static str = "Info";
+
     pub fn new(font: &'s FBox<Font>, video: &VideoMode, counters: &Counters) -> Self {
         let mut overlay = Text::new(&counters.text, font, 17);
         debug!("info bounds: {:?}", overlay.global_bounds());
@@ -63,7 +66,13 @@ impl<'s> InfoElement<'s> {
             .unwrap()
     }
 
-    pub fn draw_with(
+    pub fn next_type(&mut self) {
+        self.info_element_type.next()
+    }
+}
+
+impl<'s> ComprehensiveElement<'s> for InfoElement<'s> {
+    fn draw_with(
         &mut self,
         window: &mut FBox<RenderWindow>,
         egui_window: &mut SfEgui,
@@ -79,11 +88,15 @@ impl<'s> InfoElement<'s> {
         }
     }
 
-    pub fn update_slow(&mut self, counters: &Counters) {
+    fn update_slow(&mut self, counters: &Counters) {
         self.overlay.set_string(&counters.text);
     }
-
-    pub fn next_type(&mut self) {
-        self.info_element_type.next()
+    fn process_event(&mut self, event: &sfml::window::Event) {
+        match event {
+            sfml::window::Event::KeyPressed { code: Key::F10, .. } => {
+                self.info_element_type.next();
+            }
+            _ => (),
+        }
     }
 }
