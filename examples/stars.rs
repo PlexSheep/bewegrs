@@ -121,7 +121,10 @@ impl Star<'_> {
         self.object.set_position({
             let p = self.object.position();
 
-            p * scale
+            (
+                p.x * scale + width as f32 / 2.0,
+                p.y * scale + height as f32 / 2.0,
+            )
         });
         self.object.set_scale(scale);
     }
