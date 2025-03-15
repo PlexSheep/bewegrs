@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
 use sfml::cpp::FBox;
 use sfml::system::Clock;
@@ -24,6 +26,8 @@ pub struct Counters {
     pub frame_times: Ringbuffer<f32, MAX_FPS_USIZE>,
     /// actually keeps track of time
     pub clock: FBox<Clock>,
+
+    pub text: String,
 }
 
 impl Counters {
@@ -36,6 +40,7 @@ impl Counters {
             l_seconds: 0.0,
             frame_time_pre: 0.0,
             frame_times: Ringbuffer::new(),
+            text: String::new(),
         })
     }
     pub fn frame_start(&mut self) {
@@ -43,14 +48,19 @@ impl Counters {
         self.frames += 1;
 
         if self.frames % MAX_FPS as u64 == 0 {
-            println!("time passed: {:.2}s", self.seconds);
-            println!("frames: {}", self.frames);
-            println!("FPS: {}", self.fps());
-            println!(
+            self.text.clear();
+            writeln!(self.text, "time passed: {:.2}s", self.seconds)
+                .expect("could not write to text buffer");
+            writeln!(self.text, "frames: {}", self.frames).expect("could not write to text buffer");
+
+            writeln!(self.text, "FPS: {}", self.fps()).expect("could not write to text buffer");
+            write!(
+                self.text,
                 "time per frame: {}ms / {}ms",
                 self.a_frame_time(),
                 MS_PER_FRAME
-            );
+            )
+            .expect("could not write to text buffer");
             self.l_seconds = self.seconds;
             self.l_frames = self.frames;
         }
