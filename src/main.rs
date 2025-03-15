@@ -65,7 +65,7 @@ fn main() -> SfResult<()> {
     triangle.set_outline_thickness(3.);
 
     let mut circle = CircleShape::new(100.0, 32);
-    circle.set_position((400., 300.));
+    circle.set_position((800., 900.));
     circle.set_origin((400., 300.));
     circle.set_outline_thickness(8.);
     circle.set_outline_color(Color::RED);
@@ -73,11 +73,6 @@ fn main() -> SfResult<()> {
     let mut backdrop = RectangleShape::new();
     backdrop.set_size(Vec2::new(video.width as f32, video.height as f32));
     backdrop.set_fill_color(Color::rgb(30, 20, 20));
-
-    let mut clicker = Clickable::new_rect_round(430.0, 240.0, 32.0);
-    clicker.shape.set_position((200., 300.));
-    clicker.shape.set_outline_thickness(3.);
-    clicker = clicker.with_text("hello world", &font, 64);
 
     'mainloop: loop {
         while let Some(event) = window.poll_event() {
@@ -87,13 +82,6 @@ fn main() -> SfResult<()> {
                 | Event::KeyPressed {
                     code: Key::Escape, ..
                 } => break 'mainloop,
-                Event::MouseButtonPressed { button: _, x, y } => {
-                    let mouse_pos: Vector2i = (x, y).into();
-                    let mouse_posf: Vector2f = (x as f32, y as f32).into();
-                    if clicker.contains_point(mouse_posf) {
-                        clicker.handle_event(&event, mouse_pos);
-                    }
-                }
                 _ => (),
             }
         }
@@ -114,16 +102,11 @@ fn main() -> SfResult<()> {
         circle.set_scale(scale);
         circle.set_outline_color(Color::RED);
 
-        if counter.seconds > 10.0 {
-            clicker.set_position((300.0, 100.0));
-        }
-
         window.clear(Color::BLACK);
 
         window.draw(&backdrop);
         window.draw(&circle);
         window.draw(&triangle);
-        window.draw(&clicker);
         gui.draw_with(&mut window, &counter);
 
         counter.frame_prepare_display();

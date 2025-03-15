@@ -4,6 +4,7 @@ use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
 use sfml::cpp::FBox;
 use sfml::system::Clock;
 use sfml::SfResult;
+use tracing::warn;
 
 pub type Ringbuffer<T, const SIZE: usize> = ConstGenericRingBuffer<T, SIZE>;
 
@@ -78,7 +79,7 @@ impl Counters {
     pub fn fps(&self) -> f32 {
         let dseconds = self.dseconds();
         if dseconds == 0.0 {
-            eprintln!("dseconds 0");
+            warn!("dseconds 0");
             return MAX_FPS as f32; // only in the first second
         }
         self.dframes() as f32 / dseconds
