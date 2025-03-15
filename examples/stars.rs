@@ -1,4 +1,5 @@
 use sfml::{
+    SfResult,
     cpp::FBox,
     graphics::{
         CircleShape, Color, Drawable, FloatRect, Font, RectangleShape, RenderTarget, RenderWindow,
@@ -6,7 +7,6 @@ use sfml::{
     },
     system::Vector2f,
     window::{Event, Key, Style, VideoMode},
-    SfResult,
 };
 use tracing::info;
 
