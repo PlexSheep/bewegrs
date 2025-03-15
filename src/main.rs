@@ -43,10 +43,8 @@ fn main() -> SfResult<()> {
     backdrop.set_size(Vec2::new(WINDOW_WIDTH as f32, WINDOW_HEIGHT as f32));
     backdrop.set_fill_color(Color::rgb(30, 20, 20));
 
-    let mut menu = CustomShape::new(Box::new(RectRoundShape));
+    let mut menu = CustomShape::new(Box::new(RectRoundShape::new(333.0, 200.0, 40.0)));
     menu.set_position((600., 300.));
-    menu.set_scale(0.2);
-    menu.set_origin((400., 300.));
     menu.set_outline_thickness(3.);
 
     'mainloop: loop {
