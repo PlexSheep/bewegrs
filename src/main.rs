@@ -1,17 +1,17 @@
 use sfml::{
+    SfResult,
     graphics::{
-        glsl::Vec2, CircleShape, Color, CustomShape, Font, RectangleShape, RenderTarget,
-        RenderWindow, Shape, Transformable,
+        CircleShape, Color, CustomShape, Font, RectangleShape, RenderTarget, RenderWindow, Shape,
+        Transformable, glsl::Vec2,
     },
     system::{Vector2f, Vector2i},
     window::{Event, Key, Style, VideoMode},
-    SfResult,
 };
 
 use self::{
     counters::{Counters, MAX_FPS},
-    shapes::{hue_time, RectRoundShape, TriangleShape},
-    ui::elements::{clickeable::Clickable, UIElement},
+    shapes::{TriangleShape, hue_time},
+    ui::elements::{UIElement, clickeable::Clickable},
 };
 
 pub const WINDOW_WIDTH: u32 = 1000;

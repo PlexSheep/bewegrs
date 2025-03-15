@@ -1,8 +1,5 @@
 use sfml::{
-    graphics::{
-        Color, CustomShape, Drawable, Font, Image, RenderTarget, RenderWindow, Shape, Text,
-        Transformable,
-    },
+    graphics::{Color, CustomShape, Drawable, Font, RenderTarget, Shape, Text, Transformable},
     system::{Vector2f, Vector2i},
     window::Event,
 };

@@ -1,4 +1,4 @@
-use sfml::graphics::{Drawable, Shape};
+use sfml::graphics::Drawable;
 use sfml::system::{Vector2f, Vector2i};
 use sfml::window::Event;
 
