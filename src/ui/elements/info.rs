@@ -9,7 +9,6 @@ use sfml::window::{Key, VideoMode};
 use tracing::{debug, error};
 
 use crate::counters::Counters;
-use crate::ui::ComprehensiveElement;
 
 #[derive(Default)]
 pub enum InfoElementKind {
@@ -97,10 +96,8 @@ impl<'s> InfoElement<'s> {
         }
         buf
     }
-}
 
-impl<'s, const N: usize> ComprehensiveElement<'s, N> for InfoElement<'s> {
-    fn draw_with(
+    pub fn draw_with<const N: usize>(
         &mut self,
         window: &mut FBox<RenderWindow>,
         egui_window: &mut SfEgui,
@@ -119,15 +116,18 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for InfoElement<'s> {
         }
     }
 
-    fn update_slow(&mut self, counters: &Counters<N>) {
+    pub fn update_slow<const N: usize>(&mut self, counters: &Counters<N>) {
         self.overlay.set_string(&counters.text);
     }
-    fn process_event(&mut self, event: &sfml::window::Event) {
+
+    pub fn update<const N: usize>(&mut self, _counters: &Counters<N>) {}
+
+    pub fn process_event(&mut self, event: &sfml::window::Event) {
         if let sfml::window::Event::KeyPressed { code: Key::F10, .. } = event {
             self.kind.next();
         }
     }
-    fn z_level(&self) -> u16 {
+    pub fn z_level(&self) -> u16 {
         super::super::UI_LEVEL
     }
 }

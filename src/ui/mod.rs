@@ -1,8 +1,8 @@
 use egui_sfml::SfEgui;
-use sfml::SfResult;
 use sfml::cpp::FBox;
 use sfml::graphics::{Font, RenderWindow};
 use sfml::window::{Event, VideoMode};
+use sfml::SfResult;
 
 use crate::counters::Counters;
 
@@ -21,14 +21,15 @@ pub trait ComprehensiveElement<'s, const N: usize>: 's {
         sfml_w: &mut FBox<RenderWindow>,
         egui_w: &mut SfEgui,
         counters: &Counters<N>,
+        info: &mut InfoElement<'s>,
     );
 
     #[allow(unused_variables)]
-    fn process_event(&mut self, event: &Event) {}
+    fn process_event(&mut self, event: &Event, info: &mut InfoElement<'s>) {}
     #[allow(unused_variables)]
-    fn update_slow(&mut self, counters: &Counters<N>) {}
+    fn update_slow(&mut self, counters: &Counters<N>, info: &mut InfoElement<'s>) {}
     #[allow(unused_variables)]
-    fn update(&mut self, counters: &Counters<N>) {}
+    fn update(&mut self, counters: &Counters<N>, info: &mut InfoElement<'s>) {}
 }
 
 pub struct ComprehensiveUi<'s, const N: usize> {
@@ -43,9 +44,9 @@ impl<'s, const N: usize> ComprehensiveUi<'s, N> {
         self.egui_window.add_event(event);
 
         for element in self.elements.iter_mut() {
-            element.process_event(event);
+            element.process_event(event, &mut self.info);
         }
-        ComprehensiveElement::<N>::process_event(&mut self.info, event);
+        self.info.process_event(event);
     }
 
     pub fn build(
@@ -70,21 +71,21 @@ impl<'s, const N: usize> ComprehensiveUi<'s, N> {
 
     pub fn draw_with(&mut self, window: &mut FBox<RenderWindow>, counters: &Counters<N>) {
         for element in self.elements.iter_mut() {
-            element.draw_with(window, &mut self.egui_window, counters);
+            element.draw_with(window, &mut self.egui_window, counters, &mut self.info);
         }
         self.info.draw_with(window, &mut self.egui_window, counters);
     }
 
     pub fn update_slow(&mut self, counters: &Counters<N>) {
         for element in self.elements.iter_mut() {
-            element.update_slow(counters);
+            element.update_slow(counters, &mut self.info);
         }
         self.info.update_slow(counters);
     }
 
     pub fn update(&mut self, counters: &Counters<N>) {
         for element in self.elements.iter_mut() {
-            element.update(counters);
+            element.update(counters, &mut self.info);
         }
         self.info.update(counters);
     }
