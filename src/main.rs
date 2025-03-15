@@ -9,7 +9,7 @@ use sfml::{
 
 use self::{
     counters::{Counters, MAX_FPS},
-    shapes::{hue_time, TriangleShape},
+    shapes::{hue_time, RoundedRectShape, TriangleShape},
 };
 
 pub const WINDOW_WIDTH: u32 = 1000;
@@ -43,6 +43,12 @@ fn main() -> SfResult<()> {
     backdrop.set_size(Vec2::new(WINDOW_WIDTH as f32, WINDOW_HEIGHT as f32));
     backdrop.set_fill_color(Color::rgb(30, 20, 20));
 
+    let mut menu = CustomShape::new(Box::new(RoundedRectShape));
+    menu.set_position((600., 300.));
+    menu.set_scale(0.2);
+    menu.set_origin((400., 300.));
+    menu.set_outline_thickness(3.);
+
     'mainloop: loop {
         while let Some(event) = window.poll_event() {
             match event {
@@ -70,6 +76,7 @@ fn main() -> SfResult<()> {
         window.draw(&backdrop);
         window.draw(&circle);
         window.draw(&triangle);
+        window.draw(&menu);
 
         counter.tick_done();
         window.display();
