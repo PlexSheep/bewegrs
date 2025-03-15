@@ -1,9 +1,9 @@
 use std::fmt::Write;
 
 use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
+use sfml::SfResult;
 use sfml::cpp::FBox;
 use sfml::system::Clock;
-use sfml::SfResult;
 
 pub type Ringbuffer<T, const SIZE: usize> = ConstGenericRingBuffer<T, SIZE>;
 
