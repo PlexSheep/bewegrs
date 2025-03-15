@@ -47,7 +47,7 @@ impl Counters {
         self.seconds = self.clock.elapsed_time().as_seconds();
         self.frames += 1;
 
-        if self.frames % MAX_FPS as u64 == 0 {
+        if self.frames % MAX_FPS as u64 == 0 || self.frames == 1 {
             self.text.clear();
             writeln!(self.text, "time passed: {:.2}s", self.seconds)
                 .expect("could not write to text buffer");

@@ -150,7 +150,6 @@ impl<'s> UIElement<'s> for Clickable<'s> {
     }
 
     fn handle_event(&mut self, event: &Event, mouse_pos: Vector2i) -> bool {
-        println!("I got clicked");
         true
     }
 }

@@ -3,6 +3,8 @@ use sfml::cpp::FBox;
 use sfml::graphics::RenderWindow;
 use sfml::window::Event;
 
+use crate::counters::Counters;
+
 pub mod nativeui;
 
 #[derive(Default)]
@@ -13,7 +15,6 @@ struct MetaWindowData {
 
 pub struct ComprehensiveUi {
     pub egui_window: SfEgui,
-    meta_window_data: MetaWindowData,
 }
 
 impl ComprehensiveUi {
@@ -24,32 +25,19 @@ impl ComprehensiveUi {
     pub fn new(window: &FBox<RenderWindow>) -> Self {
         Self {
             egui_window: SfEgui::new(window),
-            meta_window_data: MetaWindowData::default(),
         }
     }
 
-    pub fn prepare_draw(&mut self, window: &mut FBox<RenderWindow>) -> DrawInput {
+    pub fn prepare_draw(
+        &mut self,
+        window: &mut FBox<RenderWindow>,
+        counters: &Counters,
+    ) -> DrawInput {
         self.egui_window
             .run(window, |_rw, ctx| {
-                let win = egui::Window::new("Hello egui-sfml!");
+                let win = egui::Window::new("Info");
                 win.show(ctx, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label("Message");
-                        let te_re = ui.text_edit_singleline(&mut self.meta_window_data.input);
-                        if ui.button("Send").clicked()
-                            || ui.input(|inp| inp.key_pressed(egui::Key::Enter))
-                        {
-                            self.meta_window_data
-                                .messages
-                                .push(self.meta_window_data.input.clone());
-                            te_re.request_focus();
-                            self.meta_window_data.input.clear();
-                        }
-                    });
-                    for msg in &self.meta_window_data.messages {
-                        ui.separator();
-                        ui.label(msg);
-                    }
+                    Self::info_win(ctx, ui, counters);
                 });
             })
             .unwrap()
@@ -57,5 +45,9 @@ impl ComprehensiveUi {
 
     pub fn draw(&mut self, di: DrawInput, window: &mut FBox<RenderWindow>) {
         self.egui_window.draw(di, window, None);
+    }
+
+    fn info_win(_ctx: &egui::Context, ui: &mut egui::Ui, counters: &Counters) {
+        ui.label(&counters.text);
     }
 }

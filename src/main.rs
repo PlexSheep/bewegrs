@@ -96,6 +96,9 @@ fn main() -> SfResult<()> {
         }
 
         counter.frame_start();
+
+        let di = gui.prepare_draw(&mut window, &counter);
+
         let scale = counter.seconds.cos().abs();
 
         triangle.set_rotation(counter.seconds.sin().abs() * 360.0);
@@ -111,8 +114,6 @@ fn main() -> SfResult<()> {
         }
 
         window.clear(Color::BLACK);
-
-        let di = gui.prepare_draw(&mut window);
 
         window.draw(&backdrop);
         window.draw(&circle);
