@@ -33,7 +33,7 @@ pub struct Counters {
 
 impl Counters {
     pub fn start() -> SfResult<Self> {
-        Ok(Counters {
+        let mut c = Counters {
             clock: Clock::start()?,
             l_frames: 0,
             frames: 0,
@@ -42,27 +42,34 @@ impl Counters {
             frame_time_pre: 0.0,
             frame_times: Ringbuffer::new(),
             text: String::new(),
-        })
+        };
+        c.update_text();
+        Ok(c)
     }
+
+    pub fn update_text(&mut self) {
+        self.text.clear();
+        writeln!(self.text, "time passed: {:.2}s", self.seconds)
+            .expect("could not write to text buffer");
+        writeln!(self.text, "frames: {}", self.frames).expect("could not write to text buffer");
+
+        writeln!(self.text, "FPS: {:02.1}", self.fps().round())
+            .expect("could not write to text buffer");
+        write!(
+            self.text,
+            "time per frame: {:02.2}ms / {:02.2}ms",
+            self.a_frame_time(),
+            MS_PER_FRAME
+        )
+        .expect("could not write to text buffer");
+    }
+
     pub fn frame_start(&mut self) {
         self.seconds = self.clock.elapsed_time().as_seconds();
         self.frames += 1;
 
         if self.frames % MAX_FPS == 0 || self.frames == 1 {
-            self.text.clear();
-            writeln!(self.text, "time passed: {:.2}s", self.seconds)
-                .expect("could not write to text buffer");
-            writeln!(self.text, "frames: {}", self.frames).expect("could not write to text buffer");
-
-            writeln!(self.text, "FPS: {:02.1}", self.fps().round())
-                .expect("could not write to text buffer");
-            write!(
-                self.text,
-                "time per frame: {:02.2}ms / {:02.2}ms",
-                self.a_frame_time(),
-                MS_PER_FRAME
-            )
-            .expect("could not write to text buffer");
+            self.update_text();
             self.l_seconds = self.seconds;
             self.l_frames = self.frames;
         }
@@ -79,7 +86,6 @@ impl Counters {
     pub fn fps(&self) -> f32 {
         let dseconds = self.dseconds();
         if dseconds == 0.0 {
-            warn!("dseconds 0");
             return MAX_FPS as f32; // only in the first second
         }
         self.dframes() as f32 / dseconds

@@ -32,11 +32,12 @@ impl<'s> ComprehensiveUi<'s> {
         window: &FBox<RenderWindow>,
         font: &'s FBox<Font>,
         video: VideoMode,
+        counters: &Counters,
     ) -> SfResult<Self> {
         let gui = Self {
             video,
             egui_window: SfEgui::new(window),
-            info_element: InfoElement::new(font, &video),
+            info_element: InfoElement::new(font, &video, counters),
             font,
         };
         Ok(gui)

@@ -7,7 +7,7 @@ use sfml::{
     window::{Event, Key, Style, VideoMode},
     SfResult,
 };
-use tracing::trace;
+use tracing::{info, trace};
 
 use self::{
     counters::{Counters, MAX_FPS},
@@ -45,8 +45,9 @@ fn main() -> SfResult<()> {
     setup();
 
     let video = VideoMode::fullscreen_modes()[0];
+    info!("video mode: {video:?}");
     let mut window = RenderWindow::new(
-        video.clone(),
+        video,
         "Custom shape",
         Style::DEFAULT | Style::FULLSCREEN,
         &Default::default(),
@@ -57,7 +58,7 @@ fn main() -> SfResult<()> {
     let mut font = Font::new()?;
     font.load_from_memory_static(include_bytes!("../resources/sansation.ttf"))?;
 
-    let mut gui = ComprehensiveUi::build(&window, &font, video.clone())?;
+    let mut gui = ComprehensiveUi::build(&window, &font, video, &counter)?;
 
     let mut triangle = CustomShape::new(Box::new(TriangleShape));
     triangle.set_position((400., 300.));

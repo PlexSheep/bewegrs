@@ -3,6 +3,7 @@ use sfml::cpp::FBox;
 use sfml::graphics::{Color, Font, RenderTarget, RenderWindow, Text, Transformable};
 use sfml::system::Vector2f;
 use sfml::window::VideoMode;
+use tracing::debug;
 
 use crate::counters::Counters;
 
@@ -30,14 +31,15 @@ pub struct InfoElement<'s> {
 }
 
 impl<'s> InfoElement<'s> {
-    pub fn new(font: &'s FBox<Font>, video: &VideoMode) -> Self {
-        let mut overlay = Text::new("", font, 15);
+    pub fn new(font: &'s FBox<Font>, video: &VideoMode, counters: &Counters) -> Self {
+        let mut overlay = Text::new(&counters.text, font, 17);
+        debug!("info bounds: {:?}", overlay.global_bounds());
         overlay.set_fill_color(Color::rgb(200, 200, 200));
         overlay.set_outline_color(Color::rgb(20, 20, 20));
         overlay.set_outline_thickness(1.0);
         overlay.set_position(Vector2f::new(
-            video.width as f32 * 0.01,
-            video.height as f32 - (video.height as f32 * 0.11),
+            video.width as f32 * 0.005,
+            video.height as f32 * 0.005,
         ));
         Self {
             info_element_type: Default::default(),
@@ -53,7 +55,7 @@ impl<'s> InfoElement<'s> {
         self.overlay.set_string(&counters.text);
         egui_window
             .run(window, |_rw, ctx| {
-                let win = egui::Window::new("Info");
+                let win = egui::Window::new("Info").fixed_size((300.0, 12.0));
                 win.show(ctx, |ui| {
                     ui.label(&counters.text);
                 });
