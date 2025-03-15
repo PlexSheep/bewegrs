@@ -11,16 +11,16 @@ use sfml::{
 
 use self::{
     counters::{Counters, MAX_FPS},
+    nativeui::elements::{clickeable::Clickable, UIElement},
     shapes::{hue_time, TriangleShape},
-    ui::elements::{clickeable::Clickable, UIElement},
 };
 
 pub const WINDOW_WIDTH: u32 = 1000;
 pub const WINDOW_HEIGHT: u32 = 600;
 
 pub mod counters;
+pub mod nativeui;
 pub mod shapes;
-pub mod ui;
 
 fn main() -> SfResult<()> {
     let video = VideoMode::new(WINDOW_WIDTH, WINDOW_HEIGHT, 16);
