@@ -11,6 +11,8 @@ homepage = "https://github.com/PlexSheep/bewegrs"
 repository = "https://github.com/PlexSheep/bewegrs"
 
 [dependencies]
+egui = "0.31.1"
+egui-sfml = "0.9.0"
 rand = "0.9.0"
 ringbuffer = "0.15.0"
 sfml = "0.24.0"
