@@ -50,7 +50,6 @@ impl Counters {
                 self.a_frame_time(),
                 1000.0 / MAX_FPS as f32
             );
-            dbg!(&self.frame_times.len());
             self.l_seconds = self.seconds;
             self.l_frames = self.frames;
         }
