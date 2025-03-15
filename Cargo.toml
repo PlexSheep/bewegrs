@@ -12,4 +12,5 @@ repository = "https://github.com/PlexSheep/bewegrs"
 
 [dependencies]
 rand = "0.9.0"
+ringbuffer = "0.15.0"
 sfml = "0.24.0"

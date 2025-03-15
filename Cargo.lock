@@ -13,6 +13,7 @@ name = "bewegrs"
 version = "0.1.0"
 dependencies = [
  "rand",
+ "ringbuffer",
  "sfml",
 ]
 
@@ -154,6 +155,12 @@ checksum = "99d9a13982dcf210057a8a78572b2217b667c3beacbf3a0d8b454f6f82837d38"
 dependencies = [
  "getrandom",
 ]
+
+[[package]]
+name = "ringbuffer"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3df6368f71f205ff9c33c076d170dd56ebf68e8161c733c0caa07a7a5509ed53"
 
 [[package]]
 name = "sfml"
