@@ -43,11 +43,7 @@ pub struct Info<'s> {
 impl<'s> Info<'s> {
     pub const DEFAULT_NAME: &'static str = "Info";
 
-    pub fn new<const N: usize>(
-        font: &'s FBox<Font>,
-        video: &'s VideoMode,
-        counters: &Counters<N>,
-    ) -> Self {
+    pub fn new(font: &'s FBox<Font>, video: &'s VideoMode, counters: &Counters) -> Self {
         let mut overlay = Text::new(&counters.text, font, 17);
         debug!("info bounds: {:?}", overlay.global_bounds());
         overlay.set_fill_color(Color::rgb(200, 200, 200));
@@ -105,11 +101,11 @@ impl<'s> Info<'s> {
         self.custom_info.insert(key.to_string(), value.to_string());
     }
 
-    pub fn prepare_draw<const N: usize>(
+    pub fn prepare_draw(
         &mut self,
         window: &mut FBox<RenderWindow>,
         egui_window: &mut SfEgui,
-        counters: &Counters<N>,
+        counters: &Counters,
     ) -> DrawInput {
         self.overlay.set_string(&self.get_text(counters));
         egui_window
@@ -130,7 +126,7 @@ impl<'s> Info<'s> {
         self.kind = kind;
     }
 
-    fn get_text<const N: usize>(&self, counters: &Counters<N>) -> String {
+    fn get_text(&self, counters: &Counters) -> String {
         let mut buf: String = format!("{}\n", counters.text);
         for (key, value) in &self.custom_info {
             if let Err(e) = writeln!(buf, "{key}: {value}") {
@@ -140,11 +136,11 @@ impl<'s> Info<'s> {
         buf
     }
 
-    pub fn draw_with<const N: usize>(
+    pub fn draw_with(
         &mut self,
         window: &mut FBox<RenderWindow>,
         egui_window: &mut SfEgui,
-        counters: &Counters<N>,
+        counters: &Counters,
     ) {
         match self.kind {
             InfoKind::None => (),
@@ -163,11 +159,11 @@ impl<'s> Info<'s> {
         }
     }
 
-    pub fn update_slow<const N: usize>(&mut self, counters: &Counters<N>) {
+    pub fn update_slow(&mut self, counters: &Counters) {
         self.overlay.set_string(&counters.text);
     }
 
-    pub fn update<const N: usize>(&mut self, _counters: &Counters<N>) {}
+    pub fn update(&mut self, _counters: &Counters) {}
 
     pub fn process_event(&mut self, event: &sfml::window::Event) {
         if let sfml::window::Event::KeyPressed { code: Key::F10, .. } = event {

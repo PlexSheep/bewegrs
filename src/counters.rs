@@ -1,15 +1,15 @@
 use std::fmt::Write;
 
-use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
+use ringbuffer::RingBuffer as _;
 use sfml::SfResult;
 use sfml::cpp::FBox;
 use sfml::system::Clock;
 
-pub type Ringbuffer<T, const SIZE: usize> = ConstGenericRingBuffer<T, SIZE>;
+type RingBuffer<T> = ringbuffer::AllocRingBuffer<T>;
 
 /// lazy fields get updated every [MAX_FPS] frames
 #[derive(Debug)]
-pub struct Counters<const MAX_FPS: usize> {
+pub struct Counters {
     /// frame counter
     pub frames: u64,
     /// frame counter lazy
@@ -19,18 +19,19 @@ pub struct Counters<const MAX_FPS: usize> {
     /// seconds counter lazy
     pub l_seconds: f32,
     pub frame_time_pre: f32,
-    pub frame_times: Ringbuffer<f32, MAX_FPS>,
+    pub frame_times: RingBuffer<f32>,
     /// actually keeps track of time
     pub clock: FBox<Clock>,
+    pub fps_limit: u64,
 
     pub text: String,
 }
 
-impl<const MAX_FPS: usize> Counters<MAX_FPS> {
-    pub const MS_PER_FRAME: f32 = 1000.0 / MAX_FPS as f32;
-    pub const MAX_FPS_U64: u64 = MAX_FPS as u64;
+impl Counters {
+    // pub const MS_PER_FRAME: f32 = 1000.0 / MAX_FPS as f32;
+    // pub const MAX_FPS_U64: u64 = MAX_FPS as u64;
 
-    pub fn start() -> SfResult<Self> {
+    pub fn start(fps_limit: u64) -> SfResult<Self> {
         let mut c = Counters {
             clock: Clock::start()?,
             l_frames: 0,
@@ -38,11 +39,17 @@ impl<const MAX_FPS: usize> Counters<MAX_FPS> {
             seconds: 0.0,
             l_seconds: 0.0,
             frame_time_pre: 0.0,
-            frame_times: Ringbuffer::new(),
+            frame_times: RingBuffer::new(fps_limit as usize),
             text: String::new(),
+            fps_limit,
         };
         c.update_text();
         Ok(c)
+    }
+
+    #[inline]
+    pub const fn ms_per_frame(&self) -> f32 {
+        1000.0 / self.fps_limit as f32
     }
 
     pub fn update_text(&mut self) {
@@ -57,7 +64,7 @@ impl<const MAX_FPS: usize> Counters<MAX_FPS> {
             self.text,
             "time per frame: {:02.2}ms / {:02.2}ms",
             self.a_frame_time(),
-            Self::MS_PER_FRAME
+            self.ms_per_frame()
         )
         .expect("could not write to text buffer");
     }
@@ -66,7 +73,7 @@ impl<const MAX_FPS: usize> Counters<MAX_FPS> {
         self.seconds = self.clock.elapsed_time().as_seconds();
         self.frames += 1;
 
-        if self.frames % Self::MAX_FPS_U64 == 0 || self.frames == 1 {
+        if self.frames % self.fps_limit == 0 || self.frames == 1 {
             self.update_text();
             self.l_seconds = self.seconds;
             self.l_frames = self.frames;
@@ -84,7 +91,7 @@ impl<const MAX_FPS: usize> Counters<MAX_FPS> {
     pub fn fps(&self) -> f32 {
         let dseconds = self.dseconds();
         if dseconds == 0.0 {
-            return MAX_FPS as f32; // only in the first second
+            return self.fps_limit as f32; // only in the first second
         }
         self.dframes() as f32 / dseconds
     }
