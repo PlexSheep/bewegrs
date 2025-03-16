@@ -124,7 +124,7 @@ fn main() -> SfResult<()> {
         counter.frame_start();
 
         gui.update(&counter);
-        if counter.frames % counter.fps_limit as u64 == 1 {
+        if counter.frames % counter.fps_limit == 1 {
             gui.update_slow(&counter)
         }
 
