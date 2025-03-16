@@ -316,6 +316,7 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
         }
     }
 
+    #[allow(clippy::field_reassign_with_default)] // wtf? I'm not doing that
     fn draw_with(
         &mut self,
         sfml_w: &mut FBox<RenderWindow>,
@@ -350,6 +351,14 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
                 ..
             } => {
                 self.speed -= 0.1 * if *shift { 10.0 } else { 1.0 };
+                info.set_custom_info("speed", format_args!("{:.03}", self.speed));
+            }
+            Event::KeyPressed {
+                code: Key::Space,
+                shift: true,
+                ..
+            } => {
+                self.speed = 0.0;
                 info.set_custom_info("speed", format_args!("{:.03}", self.speed));
             }
             _ => (),
