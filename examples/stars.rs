@@ -1,7 +1,4 @@
-use std::{
-    path::{Path, PathBuf},
-    process::exit,
-};
+use std::path::PathBuf;
 
 use getopts::Options;
 use sfml::{
