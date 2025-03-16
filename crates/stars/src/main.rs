@@ -1,5 +1,8 @@
 use std::path::PathBuf;
 
+use bewegrs::sfml;
+use bewegrs::tracing;
+
 use getopts::Options;
 use sfml::{
     SfResult,
@@ -70,9 +73,9 @@ fn main() -> SfResult<()> {
     window.set_framerate_limit(MAX_FPS as u32);
 
     let mut font = Font::new()?;
-    font.load_from_memory_static(include_bytes!("../resources/sansation.ttf"))?;
+    font.load_from_memory_static(include_bytes!("../../../resources/sansation.ttf"))?;
 
-    let profile_image = &*Image::from_memory(include_bytes!("../resources/profile.png"))?;
+    let profile_image = &*Image::from_memory(include_bytes!("../../../resources/profile.png"))?;
     let mut texture = Texture::from_image(profile_image, IntRect::default())?;
     texture.set_smooth(true);
 
@@ -427,7 +430,7 @@ impl Stars {
     fn create_star_texture(sprite_path: Option<PathBuf>) -> SfResult<(FBox<Texture>, Color)> {
         // Load star texture
         let star_image = match sprite_path {
-            None => Image::from_memory(include_bytes!("../resources/star.png"))?,
+            None => Image::from_memory(include_bytes!("../../../resources/star.png"))?,
             Some(p) => Image::from_file(p.to_str().expect("could not convert path to str"))?,
         };
 
@@ -506,7 +509,7 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
     fn draw_with(
         &mut self,
         sfml_w: &mut FBox<RenderWindow>,
-        _egui_w: &mut egui_sfml::SfEgui,
+        _egui_w: &mut bewegrs::egui_sfml::SfEgui,
         _counters: &Counters<N>,
         _info: &mut Info<'s>,
     ) {
