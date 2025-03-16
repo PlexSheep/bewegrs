@@ -209,25 +209,25 @@ impl Star {
         index: usize,
         texture_size: Vector2u,
     ) {
-        // Calculate perspective scale factor
-        let scale = NEAR_PLANE / self.distance;
-
-        // Depth ratio for color (farther stars are dimmer)
-        let depth_ratio = (self.distance - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
-        let brightness = ((1.0 - depth_ratio) * 255.0) as u8;
-
-        // Calculate projected screen position
-        let screen_x = self.position.x * scale + width as f32 / 2.0;
-        let screen_y = self.position.y * scale + height as f32 / 2.0;
-
-        // Calculate radius based on distance
-        let radius = STAR_RADIUS * scale;
-
         // Create the 4 vertices of the quad (one star = 4 vertices)
         let i = index * 4;
 
         // If star is active, create a visible quad
         if self.active {
+            // Calculate perspective scale factor
+            let scale = NEAR_PLANE / self.distance;
+
+            // Calculate projected screen position
+            let screen_x = self.position.x * scale + width as f32 / 2.0;
+            let screen_y = self.position.y * scale + height as f32 / 2.0;
+
+            // Depth ratio for color (farther stars are dimmer)
+            let depth_ratio = (self.distance - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
+            let brightness = ((1.0 - depth_ratio) * 255.0) as u8;
+
+            // Calculate radius based on distance
+            let radius = STAR_RADIUS * scale;
+
             let color = Color::rgb(brightness.saturating_add(20), brightness, brightness);
 
             // Top-left vertex
