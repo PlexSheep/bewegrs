@@ -287,7 +287,13 @@ impl Star {
                 radius,
             };
 
-            Self::create_vertecies_detailed(&mut ctx);
+            match self.lod_level {
+                StarLodLevel::Detail => Self::create_vertecies_detailed(&mut ctx),
+                StarLodLevel::Normal => Self::create_vertecies_normal(&mut ctx),
+                StarLodLevel::Far => Self::create_vertecies_far(&mut ctx),
+                StarLodLevel::Minimal => Self::create_vertecies_mini(&mut ctx),
+                _ => (),
+            }
         }
         // If star is not active, create an invisible quad
         else {
@@ -303,6 +309,87 @@ impl Star {
     }
 
     fn create_vertecies_detailed(ctx: &mut StarRenderCtx<'_>) {
+        // Top-left vertex
+        ctx.vertices[ctx.i].position =
+            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y - ctx.radius);
+        ctx.vertices[ctx.i].color = *ctx.color;
+        ctx.vertices[ctx.i].tex_coords = Vector2f::new(0.0, 0.0);
+
+        // Top-right vertex
+        ctx.vertices[ctx.i + 1].position =
+            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y - ctx.radius);
+        ctx.vertices[ctx.i + 1].color = *ctx.color;
+        ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(ctx.texture_size.x as f32, 0.0);
+
+        // Bottom-right vertex
+        ctx.vertices[ctx.i + 2].position =
+            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y + ctx.radius);
+        ctx.vertices[ctx.i + 2].color = *ctx.color;
+        ctx.vertices[ctx.i + 2].tex_coords =
+            Vector2f::new(ctx.texture_size.x as f32, ctx.texture_size.y as f32);
+
+        // Bottom-left vertex
+        ctx.vertices[ctx.i + 3].position =
+            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y + ctx.radius);
+        ctx.vertices[ctx.i + 3].color = *ctx.color;
+        ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, ctx.texture_size.y as f32);
+    }
+
+    fn create_vertecies_normal(ctx: &mut StarRenderCtx<'_>) {
+        // Top-left vertex
+        ctx.vertices[ctx.i].position =
+            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y - ctx.radius);
+        ctx.vertices[ctx.i].color = *ctx.color;
+        ctx.vertices[ctx.i].tex_coords = Vector2f::new(0.0, 0.0);
+
+        // Top-right vertex
+        ctx.vertices[ctx.i + 1].position =
+            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y - ctx.radius);
+        ctx.vertices[ctx.i + 1].color = *ctx.color;
+        ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(ctx.texture_size.x as f32, 0.0);
+
+        // Bottom-right vertex
+        ctx.vertices[ctx.i + 2].position =
+            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y + ctx.radius);
+        ctx.vertices[ctx.i + 2].color = *ctx.color;
+        ctx.vertices[ctx.i + 2].tex_coords =
+            Vector2f::new(ctx.texture_size.x as f32, ctx.texture_size.y as f32);
+
+        // Bottom-left vertex
+        ctx.vertices[ctx.i + 3].position =
+            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y + ctx.radius);
+        ctx.vertices[ctx.i + 3].color = *ctx.color;
+        ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, ctx.texture_size.y as f32);
+    }
+
+    fn create_vertecies_far(ctx: &mut StarRenderCtx<'_>) {
+        // Top-left vertex
+        ctx.vertices[ctx.i].position =
+            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y - ctx.radius);
+        ctx.vertices[ctx.i].color = *ctx.color;
+        ctx.vertices[ctx.i].tex_coords = Vector2f::new(0.0, 0.0);
+
+        // Top-right vertex
+        ctx.vertices[ctx.i + 1].position =
+            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y - ctx.radius);
+        ctx.vertices[ctx.i + 1].color = *ctx.color;
+        ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(ctx.texture_size.x as f32, 0.0);
+
+        // Bottom-right vertex
+        ctx.vertices[ctx.i + 2].position =
+            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y + ctx.radius);
+        ctx.vertices[ctx.i + 2].color = *ctx.color;
+        ctx.vertices[ctx.i + 2].tex_coords =
+            Vector2f::new(ctx.texture_size.x as f32, ctx.texture_size.y as f32);
+
+        // Bottom-left vertex
+        ctx.vertices[ctx.i + 3].position =
+            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y + ctx.radius);
+        ctx.vertices[ctx.i + 3].color = *ctx.color;
+        ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, ctx.texture_size.y as f32);
+    }
+
+    fn create_vertecies_mini(ctx: &mut StarRenderCtx<'_>) {
         // Top-left vertex
         ctx.vertices[ctx.i].position =
             Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y - ctx.radius);
