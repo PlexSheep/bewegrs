@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use getopts::Options;
 use sfml::{
-    SfResult,
     cpp::FBox,
     graphics::{
         Color, FloatRect, Font, Image, IntRect, PrimitiveType, RectangleShape, RenderTarget,
@@ -10,13 +9,14 @@ use sfml::{
     },
     system::{Vector2f, Vector2u},
     window::{Event, Key, Style, VideoMode},
+    SfResult,
 };
 use tracing::{debug, error, info};
 
 use bewegrs::{
     counters::Counters,
     setup,
-    ui::{ComprehensiveElement, ComprehensiveUi, elements::info::Info},
+    ui::{elements::info::Info, ComprehensiveElement, ComprehensiveUi},
 };
 
 const MAX_FPS: usize = 60;
@@ -241,6 +241,7 @@ impl Star {
         vertices: &mut [Vertex],
         index: usize,
         texture_size: &Vector2u,
+        color: &Color,
     ) {
         // Create the 4 vertices of the quad (one star = 4 vertices)
         let i = index * 4;
@@ -261,12 +262,14 @@ impl Star {
             // Calculate radius based on distance
             let radius = STAR_RADIUS * scale;
 
-            let color = Color::rgb(brightness.saturating_add(20), brightness, brightness);
+            let darkness = 255 - brightness;
+            let adjusted_color =
+                Color::rgb(color.r - darkness, color.g - darkness, color.b - darkness);
 
             let mut ctx = StarRenderCtx {
                 vertices,
                 texture_size,
-                color: &color,
+                color: &adjusted_color,
                 i,
                 screen_x,
                 screen_y,
@@ -323,6 +326,7 @@ impl Star {
 
         let tex_x: f32 = ctx.texture_size.x as f32 / 2.0;
         let tex_y: f32 = ctx.texture_size.y as f32 / 2.0;
+        let tex_vec = Vector2f::new(tex_x, tex_y);
 
         // Set vertices
         for j in 0..4 {
@@ -339,10 +343,10 @@ impl Star {
             Vector2f::new(ctx.screen_x - radius, ctx.screen_y + radius);
 
         // Use a fixed texture coordinate that's known to be non-transparent
-        ctx.vertices[ctx.i].tex_coords = Vector2f::new(tex_x, tex_y);
-        ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(tex_x, tex_y);
-        ctx.vertices[ctx.i + 2].tex_coords = Vector2f::new(tex_x, tex_y);
-        ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(tex_x, tex_y);
+        ctx.vertices[ctx.i].tex_coords = tex_vec;
+        ctx.vertices[ctx.i + 1].tex_coords = tex_vec;
+        ctx.vertices[ctx.i + 2].tex_coords = tex_vec;
+        ctx.vertices[ctx.i + 3].tex_coords = tex_vec;
     }
 }
 
@@ -355,11 +359,12 @@ struct Stars {
     texture: FBox<Texture>,
     last_sorted_frame: u64,
     texture_size: Vector2u,
+    texture_color: Color,
 }
 
 impl Stars {
     pub fn new(video: VideoMode, amount: usize, sprite_path: Option<PathBuf>) -> SfResult<Self> {
-        let texture = Self::create_star_texture(sprite_path)?;
+        let (texture, texture_color) = Self::create_star_texture(sprite_path)?;
 
         debug!(
             "Star texture dimensions: {}x{}",
@@ -390,7 +395,14 @@ impl Stars {
 
         // Initialize vertex data
         for (i, star) in stars.iter().enumerate() {
-            star.create_vertices(video.width, video.height, &mut vertices, i, &texture.size());
+            star.create_vertices(
+                video.width,
+                video.height,
+                &mut vertices,
+                i,
+                &texture.size(),
+                &texture_color,
+            );
         }
 
         // Update the vertex buffer with initial data
@@ -405,11 +417,12 @@ impl Stars {
             last_sorted_frame: 0,
             texture_size: texture.size(),
             texture,
+            texture_color,
         })
     }
 
     // Creates a procedural star texture
-    fn create_star_texture(sprite_path: Option<PathBuf>) -> SfResult<FBox<Texture>> {
+    fn create_star_texture(sprite_path: Option<PathBuf>) -> SfResult<(FBox<Texture>, Color)> {
         // Load star texture
         let star_image = match sprite_path {
             None => Image::from_memory(include_bytes!("../resources/star.png"))?,
@@ -430,7 +443,7 @@ impl Stars {
         let mut texture = Texture::from_image(&star_image, IntRect::default())?;
         texture.set_smooth(true); // Enable smoothing for better scaling
 
-        Ok(texture)
+        Ok((texture, center_color))
     }
 
     fn update_vertices(&mut self) -> SfResult<()> {
@@ -442,6 +455,7 @@ impl Stars {
                 &mut self.vertices,
                 i,
                 &self.texture_size,
+                &self.texture_color,
             );
         }
 
