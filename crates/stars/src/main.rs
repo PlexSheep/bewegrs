@@ -22,9 +22,9 @@ use bewegrs::{
     ui::{ComprehensiveElement, ComprehensiveUi, elements::info::Info},
 };
 
-const MAX_FPS: usize = 60;
+const DEFAULT_MAX_FPS: u64 = 60;
+const DEFAULT_STAR_AMOUNT: usize = 100_000;
 const BG: Color = Color::rgb(30, 20, 20);
-const STAR_AMOUNT: usize = 100_000;
 const DEFAULT_SPEED: f32 = 0.8;
 
 // Star configuration
@@ -36,7 +36,6 @@ const SPREAD: f32 = FAR_PLANE * 40.0;
 
 // Performance configuration
 const FAR_THRESH: f32 = FAR_PLANE / 1.7;
-const LAZY_STAR_UPDATE_INTERVAL: u64 = MAX_FPS as u64 / 15;
 
 fn main() -> SfResult<()> {
     setup();
@@ -48,6 +47,7 @@ fn main() -> SfResult<()> {
     opts.optopt("i", "sprite", "sprite texture to use for stars", "IMAGE");
     opts.optflag("h", "help", "print help menu");
     opts.optflag("l", "hide-logo", "hide the logo");
+    opts.optopt("f", "fps", "set the fps limit", "FPS");
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
         Err(f) => {
@@ -66,7 +66,13 @@ fn main() -> SfResult<()> {
     let stars_amount: usize = matches
         .opt_get("stars")
         .expect("could not get stars option")
-        .unwrap_or(STAR_AMOUNT);
+        .unwrap_or(DEFAULT_STAR_AMOUNT);
+
+    let fps_limit: u64 = matches
+        .opt_get("fps")
+        .expect("could not get fps option")
+        .unwrap_or(DEFAULT_MAX_FPS);
+    info!("fps limit: {fps_limit}");
 
     let video = VideoMode::fullscreen_modes()[0];
     info!("video mode: {video:?}");
@@ -76,8 +82,8 @@ fn main() -> SfResult<()> {
         Style::DEFAULT | Style::FULLSCREEN,
         &Default::default(),
     )?;
-    let mut counter = Counters::<MAX_FPS>::start()?;
-    window.set_framerate_limit(MAX_FPS as u32);
+    let mut counter = Counters::start(fps_limit)?;
+    window.set_framerate_limit(fps_limit as u32);
 
     let mut font = Font::new()?;
     font.load_from_memory_static(include_bytes!("../../../resources/sansation.ttf"))?;
@@ -96,8 +102,6 @@ fn main() -> SfResult<()> {
 
     let stars = Stars::new(video, stars_amount, sprite_path)?;
     gui.info.set_custom_info("stars", stars.stars.len());
-    gui.info
-        .set_custom_info("lazy_update_interval", LAZY_STAR_UPDATE_INTERVAL);
     gui.add(Box::new(stars));
 
     let mut logo = RectangleShape::new();
@@ -120,7 +124,7 @@ fn main() -> SfResult<()> {
         counter.frame_start();
 
         gui.update(&counter);
-        if counter.frames % MAX_FPS as u64 == 1 {
+        if counter.frames % counter.fps_limit as u64 == 1 {
             gui.update_slow(&counter)
         }
 
@@ -485,8 +489,8 @@ impl Stars {
     }
 }
 
-impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
-    fn update(&mut self, counters: &Counters<N>, info: &mut Info<'s>) {
+impl<'s> ComprehensiveElement<'s> for Stars {
+    fn update(&mut self, counters: &Counters, info: &mut Info<'s>) {
         if self.speed == 0.0 {
             return;
         }
@@ -497,7 +501,7 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
         }
 
         // Sort stars by distance - only when needed
-        if counters.frames % LAZY_STAR_UPDATE_INTERVAL == 0 {
+        if counters.frames % lazy_interval(counters.fps_limit) == 0 {
             for star in self.stars.iter_mut() {
                 star.update_lazy(self.video.width, self.video.height);
             }
@@ -518,7 +522,7 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
         &mut self,
         sfml_w: &mut FBox<RenderWindow>,
         _egui_w: &mut bewegrs::egui_sfml::SfEgui,
-        _counters: &Counters<N>,
+        _counters: &Counters,
         _info: &mut Info<'s>,
     ) {
         // Create render states with our texture
@@ -532,7 +536,7 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
         0
     }
 
-    fn update_slow(&mut self, _counters: &Counters<N>, info: &mut Info<'s>) {
+    fn update_slow(&mut self, counters: &Counters, info: &mut Info<'s>) {
         info.set_custom_info(
             "LOD_Detailed",
             self.stars
@@ -547,6 +551,7 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
                 .filter(|s| s.lod_level == StarLodLevel::Far)
                 .count(),
         );
+        info.set_custom_info("lazy_interval", lazy_interval(counters.fps_limit));
     }
 
     fn process_event(&mut self, event: &Event, info: &mut Info<'s>) {
@@ -578,4 +583,9 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
             _ => (),
         }
     }
+}
+
+#[inline]
+const fn lazy_interval(fps_limit: u64) -> u64 {
+    fps_limit / 15
 }
