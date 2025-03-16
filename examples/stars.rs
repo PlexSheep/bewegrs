@@ -207,7 +207,7 @@ impl Star {
         height: u32,
         vertices: &mut [Vertex],
         index: usize,
-        texture_size: Vector2u,
+        texture_size: &Vector2u,
     ) {
         // Create the 4 vertices of the quad (one star = 4 vertices)
         let i = index * 4;
@@ -273,6 +273,7 @@ struct Stars {
     speed: f32,
     texture: FBox<Texture>,
     last_sorted_frame: u64,
+    texture_size: Vector2u,
 }
 
 impl Stars {
@@ -308,7 +309,7 @@ impl Stars {
 
         // Initialize vertex data
         for (i, star) in stars.iter().enumerate() {
-            star.create_vertices(video.width, video.height, &mut vertices, i, texture.size());
+            star.create_vertices(video.width, video.height, &mut vertices, i, &texture.size());
         }
 
         // Update the vertex buffer with initial data
@@ -320,8 +321,9 @@ impl Stars {
             vertices,
             video,
             speed: DEFAULT_SPEED,
-            texture,
             last_sorted_frame: 0,
+            texture_size: texture.size(),
+            texture,
         })
     }
 
@@ -339,11 +341,6 @@ impl Stars {
     }
 
     fn update_vertices(&mut self) -> SfResult<()> {
-        // Clear all vertices by setting them to transparent
-        for vertex in &mut self.vertices {
-            vertex.color = Color::rgba(0, 0, 0, 0); // Fully transparent
-        }
-
         // Update all vertices in the vertices array
         for (i, star) in self.stars.iter().enumerate() {
             star.create_vertices(
@@ -351,7 +348,7 @@ impl Stars {
                 self.video.height,
                 &mut self.vertices,
                 i,
-                self.texture.size(),
+                &self.texture_size,
             );
         }
 
