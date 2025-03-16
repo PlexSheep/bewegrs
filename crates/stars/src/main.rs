@@ -24,7 +24,7 @@ use bewegrs::{
 
 const MAX_FPS: usize = 60;
 const BG: Color = Color::rgb(30, 20, 20);
-const STAR_AMOUNT: usize = 800_000;
+const STAR_AMOUNT: usize = 100_000;
 const DEFAULT_SPEED: f32 = 0.8;
 
 // Star configuration
@@ -34,8 +34,9 @@ const NEAR_PLANE: f32 = 5.5;
 const BEHIND_CAMERA: f32 = 60.5;
 const SPREAD: f32 = FAR_PLANE * 40.0;
 
-// LOD configuration
+// Performance configuration
 const FAR_THRESH: f32 = FAR_PLANE / 1.7;
+const LAZY_STAR_UPDATE_INTERVAL: u64 = MAX_FPS as u64 / 15;
 
 fn main() -> SfResult<()> {
     setup();
@@ -43,7 +44,8 @@ fn main() -> SfResult<()> {
     let program = args[0].clone();
 
     let mut opts = Options::new();
-    opts.optopt("s", "sprite", "sprite texture to use for stars", "IMAGE");
+    opts.optopt("s", "stars", "amount of stars", "STARS");
+    opts.optopt("i", "sprite", "sprite texture to use for stars", "IMAGE");
     opts.optflag("h", "help", "print help menu");
     opts.optflag("l", "hide-logo", "hide the logo");
     let matches = match opts.parse(&args[1..]) {
@@ -60,6 +62,11 @@ fn main() -> SfResult<()> {
     if let Some(path) = &sprite_path {
         info!("using sprite: {}", path.to_string_lossy());
     }
+
+    let stars_amount: usize = matches
+        .opt_get("stars")
+        .expect("could not get stars option")
+        .unwrap_or(STAR_AMOUNT);
 
     let video = VideoMode::fullscreen_modes()[0];
     info!("video mode: {video:?}");
@@ -87,9 +94,10 @@ fn main() -> SfResult<()> {
             .set_logo(&texture, "Christoph J. Scherr\nsoftware@cscherr.de")?;
     }
 
-    let stars = Stars::new(video, STAR_AMOUNT, sprite_path)?;
+    let stars = Stars::new(video, stars_amount, sprite_path)?;
     gui.info.set_custom_info("stars", stars.stars.len());
-    gui.info.set_custom_info("speed", stars.speed);
+    gui.info
+        .set_custom_info("lazy_update_interval", LAZY_STAR_UPDATE_INTERVAL);
     gui.add(Box::new(stars));
 
     let mut logo = RectangleShape::new();
@@ -489,7 +497,7 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
         }
 
         // Sort stars by distance - only when needed
-        if counters.frames % 3 == 0 {
+        if counters.frames % LAZY_STAR_UPDATE_INTERVAL == 0 {
             for star in self.stars.iter_mut() {
                 star.update_lazy(self.video.width, self.video.height);
             }
