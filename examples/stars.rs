@@ -49,10 +49,8 @@ fn main() -> SfResult<()> {
     let mut texture = Texture::from_image(profile_image, IntRect::default())?;
     texture.set_smooth(true);
     let mut gui = ComprehensiveUi::build(&window, &font, &video, &counter)?;
-    gui.info.set_logo(
-        &texture,
-        "hello AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-    )?;
+    gui.info
+        .set_logo(&texture, "Christoph J. Scherr\nsoftware@cscherr.de")?;
 
     let stars = Stars::new(video, STAR_AMOUNT)?;
     gui.info.set_custom_info("stars", stars.stars.len());

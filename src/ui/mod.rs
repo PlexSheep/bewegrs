@@ -52,7 +52,7 @@ impl<'s, const N: usize> ComprehensiveUi<'s, N> {
     pub fn build(
         window: &FBox<RenderWindow>,
         font: &'s FBox<Font>,
-        video: &VideoMode,
+        video: &'s VideoMode,
         counters: &Counters<N>,
     ) -> SfResult<Self> {
         let gui = Self {

@@ -38,6 +38,7 @@ pub struct Info<'s> {
     custom_info: HashMap<String, String>,
     logo: Option<Sprite<'s>>,
     logo_text: Option<Text<'s>>,
+    video: &'s VideoMode,
 }
 
 impl<'s> Info<'s> {
@@ -45,7 +46,7 @@ impl<'s> Info<'s> {
 
     pub fn new<const N: usize>(
         font: &'s FBox<Font>,
-        video: &VideoMode,
+        video: &'s VideoMode,
         counters: &Counters<N>,
     ) -> Self {
         let mut overlay = Text::new(&counters.text, font, 17);
@@ -63,6 +64,7 @@ impl<'s> Info<'s> {
             custom_info: HashMap::new(),
             logo: None,
             logo_text: None,
+            video,
         }
     }
 
@@ -70,22 +72,30 @@ impl<'s> Info<'s> {
         let mut logo = Sprite::with_texture(logo_texture);
         let logo_rect = logo.texture_rect();
         let scale = 1.0 / ((logo_rect.width + logo_rect.height) as f32 / 100.0);
-        debug!("logo rect: {logo_rect:?}");
-        debug!("logo scale: {scale}");
+        debug!("logo_rect: {logo_rect:?}");
+
+        const LOGO_TEXT_SIZE: u32 = 13;
 
         let mut logo_text = Text::new(
             &logo_text.to_string(),
             self.overlay
                 .font()
                 .expect("could not get font for logo_text"),
-            12,
+            LOGO_TEXT_SIZE,
         );
 
         logo.set_scale(scale);
-        logo.set_position((400.0, 400.0));
-        logo_text.set_position((660.0, 400.0));
+        logo.set_position((
+            logo_rect.width as f32 * scale + 10.0,
+            self.video.height as f32 - (logo_rect.height as f32 * scale),
+        ));
+        logo_text.set_position((
+            1.3 * logo_rect.width as f32 * scale + 10.0,
+            self.video.height as f32
+                - (logo_rect.height as f32 * scale)
+                - LOGO_TEXT_SIZE as f32 * 2.5,
+        ));
         logo.set_origin((logo_rect.width as f32, logo_rect.height as f32));
-        logo_text.set_origin((logo_rect.width as f32, logo_rect.height as f32));
 
         self.logo = Some(logo);
         self.logo_text = Some(logo_text);
@@ -167,5 +177,9 @@ impl<'s> Info<'s> {
     }
     pub fn z_level(&self) -> u16 {
         super::super::UI_LEVEL
+    }
+
+    pub fn video(&self) -> &VideoMode {
+        self.video
     }
 }
