@@ -586,10 +586,11 @@ impl<'s> ComprehensiveElement<'s> for Stars {
         }
 
         // Update star positions
-        self.stars.par_iter().for_each(|star| {
-            let star = unsafe { please_give_me_a_mutable_reference_because_i_want_speed(star) };
-
-            star.update(self.speed, self.video.width, self.video.height);
+        let chunk_size = self.stars.len() / rayon::max_num_threads();
+        self.stars.par_chunks_mut(chunk_size).for_each(|chunk| {
+            for star in chunk {
+                star.update(self.speed, self.video.width, self.video.height);
+            }
         });
 
         // Sort stars by distance - only when needed
