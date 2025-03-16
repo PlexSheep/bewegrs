@@ -133,13 +133,10 @@ enum StarLodLevel {
 }
 
 impl StarLodLevel {
-    const FAR_THRESH: f32 = 400.0;
+    const FAR_THRESH: f32 = 300.0;
 }
 struct StarRenderCtx<'render> {
-    width: u32,
-    height: u32,
     vertices: &'render mut [Vertex],
-    index: usize,
     texture_size: &'render Vector2u,
     color: &'render Color,
     i: usize,
@@ -267,10 +264,7 @@ impl Star {
             let color = Color::rgb(brightness.saturating_add(20), brightness, brightness);
 
             let mut ctx = StarRenderCtx {
-                width,
-                height,
                 vertices,
-                index,
                 texture_size,
                 color: &color,
                 i,
@@ -282,7 +276,6 @@ impl Star {
             match self.lod_level {
                 StarLodLevel::Detail => Self::create_vertecies_detailed(&mut ctx),
                 StarLodLevel::Far => Self::create_vertecies_far(&mut ctx),
-                _ => (),
             }
         }
         // If star is not active, create an invisible quad
