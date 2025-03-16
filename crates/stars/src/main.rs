@@ -23,7 +23,7 @@ use bewegrs::{
 };
 
 const DEFAULT_MAX_FPS: u64 = 60;
-const DEFAULT_STAR_AMOUNT: usize = 100_000;
+const DEFAULT_STAR_AMOUNT: usize = 500_000;
 const BG: Color = Color::rgb(30, 20, 20);
 const DEFAULT_SPEED: f32 = 0.8;
 
@@ -35,7 +35,8 @@ const BEHIND_CAMERA: f32 = 60.5;
 const SPREAD: f32 = FAR_PLANE * 40.0;
 
 // Performance configuration
-const FAR_THRESH: f32 = FAR_PLANE / 1.8;
+const FAR_THRESH: f32 = FAR_PLANE / 3.5;
+const POINT_THRESH: f32 = FAR_PLANE / 1.5;
 
 fn main() -> SfResult<()> {
     setup();
@@ -105,6 +106,7 @@ fn main() -> SfResult<()> {
     gui.info.set_custom_info("star_r", STAR_RADIUS);
     gui.info.set_custom_info("far", FAR_PLANE);
     gui.info.set_custom_info("far_thresh", FAR_THRESH);
+    gui.info.set_custom_info("point_thresh", POINT_THRESH);
     gui.info.set_custom_info("near", NEAR_PLANE);
     gui.info.set_custom_info("spread", SPREAD);
     gui.info.set_custom_info("behind_cam", BEHIND_CAMERA);
@@ -154,6 +156,7 @@ fn print_usage(program: &str, opts: Options) {
 enum StarLodLevel {
     Detail,
     Far,
+    Point,
 }
 
 struct StarRenderCtx<'render> {
@@ -191,10 +194,14 @@ impl Star {
     // Update the star's LOD level based on distance
     #[inline]
     fn update_lod(&mut self) {
-        self.lod_level = if self.distance < FAR_THRESH {
-            StarLodLevel::Detail
+        self.lod_level = if self.distance < POINT_THRESH {
+            if self.distance < FAR_THRESH {
+                StarLodLevel::Detail
+            } else {
+                StarLodLevel::Far
+            }
         } else {
-            StarLodLevel::Far
+            StarLodLevel::Point
         };
     }
 
@@ -263,7 +270,18 @@ impl Star {
         index: usize,
         texture_size: &Vector2u,
         color: &Color,
+        aspect_ratio: f32,
     ) {
+        // Skip point stars - they'll be handled separately
+        if self.lod_level == StarLodLevel::Point {
+            // Make vertices transparent for skipped stars
+            let i = index * 4;
+            for j in 0..4 {
+                vertices[i + j].color = Color::TRANSPARENT;
+            }
+            return;
+        }
+
         // Create the 4 vertices of the quad (one star = 4 vertices)
         let i = index * 4;
 
@@ -273,7 +291,7 @@ impl Star {
             let scale = NEAR_PLANE / self.distance;
 
             // Calculate projected screen position
-            let screen_x = self.position.x * scale + width as f32 / 2.0;
+            let screen_x = self.position.x * scale * aspect_ratio + width as f32 / 2.0;
             let screen_y = self.position.y * scale + height as f32 / 2.0;
 
             // Depth ratio for color (farther stars are dimmer)
@@ -307,6 +325,7 @@ impl Star {
             match self.lod_level {
                 StarLodLevel::Detail => Self::create_vertecies_detailed(&mut ctx),
                 StarLodLevel::Far => Self::create_vertecies_far(&mut ctx),
+                StarLodLevel::Point => unreachable!(),
             }
         }
         // If star is not active, create an invisible quad
@@ -374,8 +393,10 @@ impl Star {
 
 struct Stars {
     stars: Vec<Star>,
-    vertex_buffer: FBox<VertexBuffer>,
-    vertices: Vec<Vertex>,
+    star_vertices_buf: FBox<VertexBuffer>,
+    point_vertices_buf: FBox<VertexBuffer>,
+    star_vertices: Vec<Vertex>,
+    point_vertices: Vec<Vertex>,
     video: VideoMode,
     speed: f32,
     texture: FBox<Texture>,
@@ -400,49 +421,40 @@ impl Stars {
             stars.push(Star::new(video.width, video.height));
         }
 
-        // Create a vertex array to store our quad data (4 vertices per star)
-        let mut vertices = vec![Vertex::default(); amount * 4];
+        let mut star_vertices = vec![Vertex::default(); amount * 4];
+        let mut point_vertices = vec![Vertex::default(); amount];
 
-        // Initialize all vertices as transparent (this is crucial)
-        for vertex in &mut vertices {
-            vertex.color = Color::TRANSPARENT; // Fully transparent
+        for vertex in &mut star_vertices {
+            vertex.color = Color::TRANSPARENT;
+        }
+        for vertex in &mut point_vertices {
+            vertex.color = Color::TRANSPARENT;
         }
 
-        // Create the vertex buffer
-        let mut vertex_buffer =
-            VertexBuffer::new(PrimitiveType::QUADS, amount * 4, VertexBufferUsage::DYNAMIC)?;
+        let mut star_vertices_buf =
+            VertexBuffer::new(PrimitiveType::QUADS, amount * 4, VertexBufferUsage::STREAM)?;
+        let mut point_vertices_buf =
+            VertexBuffer::new(PrimitiveType::POINTS, amount, VertexBufferUsage::STREAM)?;
 
-        // Initialize vertex data
-        for (i, star) in stars.iter().enumerate() {
-            star.create_vertices(
-                video.width,
-                video.height,
-                &mut vertices,
-                i,
-                &texture.size(),
-                &texture_color,
-            );
-        }
-
-        // Update the vertex buffer with initial data
-        // PERF: this takes a lot of time, but since vertex buffers are stored in the gpu memory,
-        // it saves us time later when drawing.
-        // I have tried the performance with just vertex arrays (Vec<Vertex>) and it is worse.
-        vertex_buffer.update(&vertices, 0)?;
+        star_vertices_buf.update(&star_vertices, 0)?;
+        point_vertices_buf.update(&point_vertices, 0)?;
 
         let mut stars = Stars {
             stars,
-            vertex_buffer,
-            vertices,
+            star_vertices_buf,
+            star_vertices,
+            point_vertices,
             video,
             speed: DEFAULT_SPEED,
             last_sorted_frame: 0,
             texture_size: texture.size(),
             texture,
             texture_color,
+            point_vertices_buf,
         };
 
         stars.sort();
+        stars.update_vertices()?;
 
         Ok(stars)
     }
@@ -473,22 +485,68 @@ impl Stars {
     }
 
     fn update_vertices(&mut self) -> SfResult<()> {
-        // Update all vertices in the vertices array
+        self.update_point_vertices()?;
+        let aspect_ratio = self.video.width as f32 / self.video.height as f32;
         for (i, star) in self.stars.iter().enumerate() {
             star.create_vertices(
                 self.video.width,
                 self.video.height,
-                &mut self.vertices,
+                &mut self.star_vertices,
                 i,
                 &self.texture_size,
                 &self.texture_color,
+                aspect_ratio,
             );
         }
 
         // Update the vertex buffer with the new vertex data
         // This updates all vertices, including the "invisible" ones
-        self.vertex_buffer.update(&self.vertices, 0)?;
+        // PERF: this takes a lot of time, but since vertex buffers are stored in the gpu memory,
+        // it saves us time later when drawing.
+        // I have tried the performance with just vertex arrays (Vec<Vertex>) and it is worse.
+        self.star_vertices_buf.update(&self.star_vertices, 0)?;
+        self.point_vertices_buf.update(&self.point_vertices, 0)?;
 
+        Ok(())
+    }
+
+    fn update_point_vertices(&mut self) -> SfResult<()> {
+        let aspect_ratio = self.video.width as f32 / self.video.height as f32;
+        for (i, star) in self.stars.iter().enumerate() {
+            // Only process active point stars
+            if star.lod_level == StarLodLevel::Point && star.active {
+                // Calculate perspective scale factor
+                let scale = NEAR_PLANE / star.distance;
+
+                // Calculate projected screen position
+                let screen_x =
+                    star.position.x * scale * aspect_ratio + self.video.width as f32 / 2.0;
+                let screen_y = star.position.y * scale + self.video.height as f32 / 2.0;
+
+                // Depth ratio for color (farther stars are dimmer)
+                let depth_ratio = (star.distance - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
+                let brightness = ((1.0 - depth_ratio) * 255.0) as u8;
+
+                let darkness = 255 - brightness;
+                let adjusted_color = Color::rgb(
+                    self.texture_color.r.saturating_sub(darkness),
+                    self.texture_color.g.saturating_sub(darkness),
+                    self.texture_color.b.saturating_sub(darkness),
+                );
+
+                // Create a point vertex
+                let vertex = Vertex::new(
+                    Vector2f::new(screen_x, screen_y),
+                    adjusted_color,
+                    Vector2f::new(
+                        self.texture_size.x as f32 / 2.0,
+                        self.texture_size.y as f32 / 2.0,
+                    ),
+                );
+
+                self.point_vertices[i] = vertex;
+            }
+        }
         Ok(())
     }
 
@@ -538,7 +596,8 @@ impl<'s> ComprehensiveElement<'s> for Stars {
         let mut states = sfml::graphics::RenderStates::default();
         states.texture = Some(&*self.texture);
         // Draw all stars with a single draw call
-        sfml_w.draw_with_renderstates(&*self.vertex_buffer, &states);
+        sfml_w.draw(&*self.point_vertices_buf);
+        sfml_w.draw_with_renderstates(&*self.star_vertices_buf, &states);
     }
 
     fn z_level(&self) -> u16 {
@@ -558,6 +617,13 @@ impl<'s> ComprehensiveElement<'s> for Stars {
             self.stars
                 .iter()
                 .filter(|s| s.lod_level == StarLodLevel::Far)
+                .count(),
+        );
+        info.set_custom_info(
+            "LOD_Point",
+            self.stars
+                .iter()
+                .filter(|s| s.lod_level == StarLodLevel::Point)
                 .count(),
         );
         info.set_custom_info("lazy_interval", lazy_interval(counters.fps_limit));
