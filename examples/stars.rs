@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use getopts::Options;
 use sfml::{
-    SfResult,
     cpp::FBox,
     graphics::{
         Color, FloatRect, Font, Image, IntRect, PrimitiveType, RectangleShape, RenderTarget,
@@ -10,13 +9,14 @@ use sfml::{
     },
     system::{Vector2f, Vector2u},
     window::{Event, Key, Style, VideoMode},
+    SfResult,
 };
 use tracing::{debug, error, info};
 
 use bewegrs::{
     counters::Counters,
     setup,
-    ui::{ComprehensiveElement, ComprehensiveUi, elements::info::Info},
+    ui::{elements::info::Info, ComprehensiveElement, ComprehensiveUi},
 };
 
 const MAX_FPS: usize = 60;
@@ -298,58 +298,51 @@ impl Star {
     }
 
     fn create_vertecies_detailed(ctx: &mut StarRenderCtx<'_>) {
-        // Top-left vertex
-        ctx.vertices[ctx.i].position =
-            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y - ctx.radius);
-        ctx.vertices[ctx.i].color = *ctx.color;
-        ctx.vertices[ctx.i].tex_coords = Vector2f::new(0.0, 0.0);
+        let tex_x: f32 = ctx.texture_size.x as f32;
+        let tex_y: f32 = ctx.texture_size.y as f32;
 
-        // Top-right vertex
-        ctx.vertices[ctx.i + 1].position =
-            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y - ctx.radius);
-        ctx.vertices[ctx.i + 1].color = *ctx.color;
-        ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(ctx.texture_size.x as f32, 0.0);
-
-        // Bottom-right vertex
-        ctx.vertices[ctx.i + 2].position =
-            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y + ctx.radius);
-        ctx.vertices[ctx.i + 2].color = *ctx.color;
-        ctx.vertices[ctx.i + 2].tex_coords =
-            Vector2f::new(ctx.texture_size.x as f32, ctx.texture_size.y as f32);
-
-        // Bottom-left vertex
-        ctx.vertices[ctx.i + 3].position =
-            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y + ctx.radius);
-        ctx.vertices[ctx.i + 3].color = *ctx.color;
-        ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, ctx.texture_size.y as f32);
-    }
-
-    fn create_vertecies_far(ctx: &mut StarRenderCtx<'_>) {
-        let radius = ctx.radius;
-
-        let tex_x: f32 = ctx.texture_size.x as f32 / 2.0;
-        let tex_y: f32 = ctx.texture_size.y as f32 / 2.0;
-        let tex_vec = Vector2f::new(tex_x, tex_y);
-
-        // Set vertices
         for j in 0..4 {
             ctx.vertices[ctx.i + j].color = *ctx.color;
         }
 
-        // Position vertices for a small square
-        ctx.vertices[ctx.i].position = Vector2f::new(ctx.screen_x - radius, ctx.screen_y - radius);
+        ctx.vertices[ctx.i].position =
+            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y - ctx.radius);
         ctx.vertices[ctx.i + 1].position =
-            Vector2f::new(ctx.screen_x + radius, ctx.screen_y - radius);
+            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y - ctx.radius);
         ctx.vertices[ctx.i + 2].position =
-            Vector2f::new(ctx.screen_x + radius, ctx.screen_y + radius);
+            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y + ctx.radius);
         ctx.vertices[ctx.i + 3].position =
-            Vector2f::new(ctx.screen_x - radius, ctx.screen_y + radius);
+            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y + ctx.radius);
+
+        ctx.vertices[ctx.i].tex_coords = Vector2f::new(0.0, 0.0);
+        ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(tex_x, 0.0);
+        ctx.vertices[ctx.i + 2].tex_coords = Vector2f::new(tex_x, tex_y);
+        ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, tex_y);
+    }
+
+    fn create_vertecies_far(ctx: &mut StarRenderCtx<'_>) {
+        let tex_x: f32 = ctx.texture_size.x as f32 / 2.0;
+        let tex_y: f32 = ctx.texture_size.y as f32 / 2.0;
+        let tex_center = Vector2f::new(tex_x, tex_y);
+
+        for j in 0..4 {
+            ctx.vertices[ctx.i + j].color = *ctx.color;
+        }
+
+        ctx.vertices[ctx.i].position =
+            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y - ctx.radius);
+        ctx.vertices[ctx.i + 1].position =
+            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y - ctx.radius);
+        ctx.vertices[ctx.i + 2].position =
+            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y + ctx.radius);
+        ctx.vertices[ctx.i + 3].position =
+            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y + ctx.radius);
 
         // Use a fixed texture coordinate that's known to be non-transparent
-        ctx.vertices[ctx.i].tex_coords = tex_vec;
-        ctx.vertices[ctx.i + 1].tex_coords = tex_vec;
-        ctx.vertices[ctx.i + 2].tex_coords = tex_vec;
-        ctx.vertices[ctx.i + 3].tex_coords = tex_vec;
+        ctx.vertices[ctx.i].tex_coords = tex_center;
+        ctx.vertices[ctx.i + 1].tex_coords = tex_center;
+        ctx.vertices[ctx.i + 2].tex_coords = tex_center;
+        ctx.vertices[ctx.i + 3].tex_coords = tex_center;
     }
 }
 
