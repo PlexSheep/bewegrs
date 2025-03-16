@@ -32,7 +32,7 @@ const BEHIND_CAMERA: f32 = 60.5;
 const SPREAD: f32 = FAR_PLANE * 40.0;
 
 // LOD configuration
-const FAR_THRESH: f32 = 1000.0;
+const FAR_THRESH: f32 = FAR_PLANE / 1.7;
 
 fn main() -> SfResult<()> {
     setup();
@@ -168,6 +168,7 @@ impl Star {
     }
 
     // Update the star's LOD level based on distance
+    #[inline]
     fn update_lod(&mut self) {
         self.lod_level = if self.distance < FAR_THRESH {
             StarLodLevel::Detail
@@ -176,6 +177,7 @@ impl Star {
         };
     }
 
+    #[inline]
     fn rand_distance(&mut self) {
         self.distance = rand::random_range(NEAR_PLANE..FAR_PLANE);
     }
@@ -204,33 +206,28 @@ impl Star {
     fn update(&mut self, width: u32, height: u32, speed: f32) {
         // Decrease distance (move closer)
         self.distance -= speed;
-
-        // If star gets too close, reset it
-        if self.distance <= NEAR_PLANE - BEHIND_CAMERA {
-            self.rand_pos(width, height);
-            self.distance = FAR_PLANE;
-        }
-        // If star gets too far, reset it
-        if self.distance >= FAR_PLANE {
-            self.rand_pos(width, height);
-            self.rand_distance();
-        }
-
-        // Check visibility
-        self.active = self.is_visible(width, height);
-        if self.active {
-            self.update_lod();
-        }
     }
 
-    fn is_visible(&self, _width: u32, _height: u32) -> bool {
-        // Calculate perspective scale factor
-        let scale = NEAR_PLANE / self.distance;
+    fn update_lazy(&mut self, width: u32, height: u32) {
+        self.update_lod();
+        // If star gets too close, reset it
+        if self.distance < NEAR_PLANE - BEHIND_CAMERA {
+            self.rand_pos(width, height);
+            self.distance = FAR_PLANE - rand::random_range(0.0..FAR_PLANE / 200.0);
+        }
+        // If star gets too far, reset it
+        if self.distance > FAR_PLANE {
+            self.rand_pos(width, height);
+            self.distance = -BEHIND_CAMERA + rand::random_range(0.0..FAR_PLANE / 200.0);
+        }
+        // Check visibility
+        self.active = self.is_visible();
+    }
 
-        // we could also check if the star is in the viewport
-
+    #[inline]
+    fn is_visible(&self) -> bool {
         // Check if star is big enough to see
-        scale > 0.001
+        NEAR_PLANE / self.distance > 0.001
     }
 
     // Create vertices for this star (a quad made of 4 vertices)
@@ -279,6 +276,10 @@ impl Star {
                 radius,
             };
 
+            // PERF: interestingly, the only difference in these functions is how the texture
+            // coords are set. In detailed, they are set to the dimensions of the texture_size. In
+            // far, all are set to the center of the texture_size.
+            // This makes a difference of a few percent points at profiling
             match self.lod_level {
                 StarLodLevel::Detail => Self::create_vertecies_detailed(&mut ctx),
                 StarLodLevel::Far => Self::create_vertecies_far(&mut ctx),
@@ -290,9 +291,10 @@ impl Star {
 
             // Set all 4 vertices to be invisible (zero size, transparent)
             for j in 0..4 {
-                vertices[i + j].position = Vector2f::new(0.0, 0.0);
                 vertices[i + j].color = transparent;
-                vertices[i + j].tex_coords = Vector2f::new(0.0, 0.0);
+
+                // PERF: we can just leave the position and tex_coords as before, since the thing
+                // is transparent anyway.
             }
         }
     }
@@ -374,15 +376,12 @@ impl Stars {
             stars.push(Star::new(video.width, video.height));
         }
 
-        // Sort stars by distance (farthest first for proper rendering)
-        stars.sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());
-
         // Create a vertex array to store our quad data (4 vertices per star)
         let mut vertices = vec![Vertex::default(); amount * 4];
 
         // Initialize all vertices as transparent (this is crucial)
         for vertex in &mut vertices {
-            vertex.color = Color::rgba(0, 0, 0, 0); // Fully transparent
+            vertex.color = Color::TRANSPARENT; // Fully transparent
         }
 
         // Create the vertex buffer
@@ -402,9 +401,12 @@ impl Stars {
         }
 
         // Update the vertex buffer with initial data
+        // PERF: this takes a lot of time, but since vertex buffers are stored in the gpu memory,
+        // it saves us time later when drawing.
+        // I have tried the performance with just vertex arrays (Vec<Vertex>) and it is worse.
         vertex_buffer.update(&vertices, 0)?;
 
-        Ok(Stars {
+        let mut stars = Stars {
             stars,
             vertex_buffer,
             vertices,
@@ -414,7 +416,11 @@ impl Stars {
             texture_size: texture.size(),
             texture,
             texture_color,
-        })
+        };
+
+        stars.sort();
+
+        Ok(stars)
     }
 
     // Creates a procedural star texture
@@ -461,19 +467,31 @@ impl Stars {
 
         Ok(())
     }
+
+    fn sort(&mut self) {
+        self.stars
+            .sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());
+    }
 }
 
 impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
     fn update(&mut self, counters: &Counters<N>, info: &mut Info<'s>) {
+        if self.speed == 0.0 {
+            return;
+        }
+
         // Update star positions
         for star in self.stars.iter_mut() {
             star.update(self.video.width, self.video.height, self.speed);
         }
 
         // Sort stars by distance - only when needed
-        if self.speed != 0. {
-            self.stars
-                .sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());
+        if counters.frames % 3 == 0 {
+            for star in self.stars.iter_mut() {
+                star.update_lazy(self.video.width, self.video.height);
+            }
+
+            self.sort();
             self.last_sorted_frame = counters.frames;
             info.set_custom_info("last_sort", self.last_sorted_frame);
         }
