@@ -126,11 +126,26 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+enum StarLodLevel {
+    Detail,
+    Normal,
+    Far,
+    Minimal,
+}
+
+impl StarLodLevel {
+    const DETAIL_THRESH: f32 = 40.0;
+    const NORMAL_THRESH: f32 = 200.0;
+    const FAR_THRESH: f32 = 400.0;
+}
+
 // Simple star data without the SFML object
 struct Star {
     position: Vector2f, // World-space position (centered around 0,0)
     distance: f32,      // z-coordinate
     active: bool,       // Whether star is active/visible
+    lod_level: StarLodLevel,
 }
 
 impl Star {
@@ -139,11 +154,25 @@ impl Star {
             position: Vector2f::new(0.0, 0.0),
             distance: 0.0,
             active: true,
+            lod_level: StarLodLevel::Normal,
         };
 
         star.rand_pos(width, height);
         star.rand_distance();
         star
+    }
+
+    // Update the star's LOD level based on distance
+    fn update_lod(&mut self) {
+        self.lod_level = if self.distance < StarLodLevel::DETAIL_THRESH {
+            StarLodLevel::Detail
+        } else if self.distance < StarLodLevel::NORMAL_THRESH {
+            StarLodLevel::Normal
+        } else if self.distance < StarLodLevel::FAR_THRESH {
+            StarLodLevel::Far
+        } else {
+            StarLodLevel::Minimal
+        };
     }
 
     fn rand_distance(&mut self) {
@@ -188,6 +217,9 @@ impl Star {
 
         // Check visibility
         self.active = self.is_visible(width, height);
+        if self.active {
+            self.update_lod();
+        }
     }
 
     fn is_visible(&self, _width: u32, _height: u32) -> bool {
@@ -400,6 +432,37 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
 
     fn z_level(&self) -> u16 {
         0
+    }
+
+    fn update_slow(&mut self, _counters: &Counters<N>, info: &mut Info<'s>) {
+        info.set_custom_info(
+            "LOD_Detailed",
+            self.stars
+                .iter()
+                .filter(|s| s.lod_level == StarLodLevel::Detail)
+                .count(),
+        );
+        info.set_custom_info(
+            "LOD_Normal",
+            self.stars
+                .iter()
+                .filter(|s| s.lod_level == StarLodLevel::Normal)
+                .count(),
+        );
+        info.set_custom_info(
+            "LOD_Far",
+            self.stars
+                .iter()
+                .filter(|s| s.lod_level == StarLodLevel::Far)
+                .count(),
+        );
+        info.set_custom_info(
+            "LOD_Minimal",
+            self.stars
+                .iter()
+                .filter(|s| s.lod_level == StarLodLevel::Minimal)
+                .count(),
+        );
     }
 
     fn process_event(&mut self, event: &Event, info: &mut Info<'s>) {
