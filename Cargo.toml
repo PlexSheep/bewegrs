@@ -1,3 +1,4 @@
+
 [package]
 name = "bewegrs"
 version = "0.1.0"
@@ -13,13 +14,21 @@ repository = "https://github.com/PlexSheep/bewegrs"
 [dependencies]
 egui = "0.31.1"
 egui-sfml = "0.9.0"
-getopts = "0.2.21"
-rand = "0.9.0"
 ringbuffer = "0.15.0"
 sfml = "0.24.0"
-tracing = "0.1.41"
-tracing-subscriber = "0.3.19"
+tracing = { workspace = true }
+rand = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 [profile.profiling]
 inherits = "release"
 debug = true
+
+[workspace]
+members = ["crates/stars"]
+
+[workspace.dependencies]
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+getopts = "0.2.21"
+rand = "0.9.0"
