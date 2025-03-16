@@ -15,7 +15,7 @@ use bewegrs::{
     ui::ComprehensiveUi,
 };
 
-const MAX_FPS: usize = 60;
+const MAX_FPS: u64 = 60;
 
 fn main() -> SfResult<()> {
     setup();
@@ -28,7 +28,7 @@ fn main() -> SfResult<()> {
         Style::DEFAULT | Style::FULLSCREEN,
         &Default::default(),
     )?;
-    let mut counter = Counters::<MAX_FPS>::start()?;
+    let mut counter = Counters::start(MAX_FPS)?;
     window.set_framerate_limit(MAX_FPS as u32);
 
     let mut font = Font::new()?;
