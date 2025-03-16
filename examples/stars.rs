@@ -262,26 +262,18 @@ impl Star {
 
             let color = Color::rgb(brightness.saturating_add(20), brightness, brightness);
 
-            // Top-left vertex
-            vertices[i].position = Vector2f::new(screen_x - radius, screen_y - radius);
-            vertices[i].color = color;
-            vertices[i].tex_coords = Vector2f::new(0.0, 0.0);
-
-            // Top-right vertex
-            vertices[i + 1].position = Vector2f::new(screen_x + radius, screen_y - radius);
-            vertices[i + 1].color = color;
-            vertices[i + 1].tex_coords = Vector2f::new(texture_size.x as f32, 0.0);
-
-            // Bottom-right vertex
-            vertices[i + 2].position = Vector2f::new(screen_x + radius, screen_y + radius);
-            vertices[i + 2].color = color;
-            vertices[i + 2].tex_coords =
-                Vector2f::new(texture_size.x as f32, texture_size.y as f32);
-
-            // Bottom-left vertex
-            vertices[i + 3].position = Vector2f::new(screen_x - radius, screen_y + radius);
-            vertices[i + 3].color = color;
-            vertices[i + 3].tex_coords = Vector2f::new(0.0, texture_size.y as f32);
+            self.create_vertecies_detailed(
+                width,
+                height,
+                vertices,
+                index,
+                texture_size,
+                &color,
+                i,
+                screen_x,
+                screen_y,
+                radius,
+            );
         }
         // If star is not active, create an invisible quad
         else {
@@ -294,6 +286,40 @@ impl Star {
                 vertices[i + j].tex_coords = Vector2f::new(0.0, 0.0);
             }
         }
+    }
+
+    fn create_vertecies_detailed(
+        &self,
+        width: u32,
+        height: u32,
+        vertices: &mut [Vertex],
+        index: usize,
+        texture_size: &Vector2u,
+        color: &Color,
+        i: usize,
+        screen_x: f32,
+        screen_y: f32,
+        radius: f32,
+    ) {
+        // Top-left vertex
+        vertices[i].position = Vector2f::new(screen_x - radius, screen_y - radius);
+        vertices[i].color = *color;
+        vertices[i].tex_coords = Vector2f::new(0.0, 0.0);
+
+        // Top-right vertex
+        vertices[i + 1].position = Vector2f::new(screen_x + radius, screen_y - radius);
+        vertices[i + 1].color = *color;
+        vertices[i + 1].tex_coords = Vector2f::new(texture_size.x as f32, 0.0);
+
+        // Bottom-right vertex
+        vertices[i + 2].position = Vector2f::new(screen_x + radius, screen_y + radius);
+        vertices[i + 2].color = *color;
+        vertices[i + 2].tex_coords = Vector2f::new(texture_size.x as f32, texture_size.y as f32);
+
+        // Bottom-left vertex
+        vertices[i + 3].position = Vector2f::new(screen_x - radius, screen_y + radius);
+        vertices[i + 3].color = *color;
+        vertices[i + 3].tex_coords = Vector2f::new(0.0, texture_size.y as f32);
     }
 }
 
