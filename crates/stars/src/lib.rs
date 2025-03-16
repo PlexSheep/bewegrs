@@ -502,17 +502,20 @@ impl Stars {
     pub fn update_vertices(&mut self) -> SfResult<()> {
         self.update_point_vertices()?;
         let aspect_ratio = self.video.width as f32 / self.video.height as f32;
-        for (i, star) in self.stars.iter().enumerate() {
+        self.stars.par_iter().enumerate().for_each(|(i, star)| {
             star.create_vertices(
                 self.video.width,
                 self.video.height,
-                &mut self.star_vertices,
+                #[allow(clippy::needless_borrow)] // not needless
+                &mut unsafe {
+                    please_give_me_a_mutable_reference_because_i_want_speed(&self.star_vertices)
+                },
                 i,
                 &self.texture_size,
                 &self.texture_color,
                 aspect_ratio,
             );
-        }
+        });
 
         // Update the vertex buffer with the new vertex data
         // This updates all vertices, including the "invisible" ones
@@ -584,9 +587,11 @@ impl<'s> ComprehensiveElement<'s> for Stars {
         }
 
         // Update star positions
-        for star in self.stars.iter_mut() {
+        self.stars.par_iter().for_each(|star| {
+            let star = unsafe { please_give_me_a_mutable_reference_because_i_want_speed(star) };
+
             star.update(self.speed, self.video.width, self.video.height);
-        }
+        });
 
         // Sort stars by distance - only when needed
         if counters.frames % lazy_interval(counters.fps_limit) == 0 {
@@ -688,6 +693,7 @@ const fn lazy_interval(fps_limit: u64) -> u64 {
 
 #[allow(invalid_reference_casting)] // just fucking do what I say
 #[allow(clippy::mut_from_ref)]
+#[inline]
 unsafe fn please_give_me_a_mutable_reference_because_i_want_speed<T>(thing: &T) -> &mut T {
     unsafe {
         let thing_pointer = thing as *const T;
