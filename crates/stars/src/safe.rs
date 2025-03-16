@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use rayon::prelude::*;
-
 use bewegrs::sfml;
 use bewegrs::tracing;
 
@@ -40,9 +38,9 @@ const SPREAD: f32 = FAR_PLANE * 40.0;
 const FAR_THRESH: f32 = FAR_PLANE / 3.5;
 const POINT_THRESH: f32 = FAR_PLANE / 1.5;
 
-// export this so that we can use benchmarks
-pub fn stars(args: Vec<String>) -> SfResult<()> {
+fn main() -> SfResult<()> {
     setup();
+    let args: Vec<_> = std::env::args().collect();
     let program = args[0].clone();
 
     let mut opts = Options::new();
@@ -166,33 +164,33 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
-pub enum StarLodLevel {
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+enum StarLodLevel {
     Detail,
     Far,
     Point,
 }
 
-pub struct StarRenderCtx<'render> {
-    pub vertices: &'render mut [Vertex],
-    pub texture_size: &'render Vector2u,
-    pub color: &'render Color,
-    pub i: usize,
-    pub screen_x: f32,
-    pub screen_y: f32,
-    pub radius: f32,
+struct StarRenderCtx<'render> {
+    vertices: &'render mut [Vertex],
+    texture_size: &'render Vector2u,
+    color: &'render Color,
+    i: usize,
+    screen_x: f32,
+    screen_y: f32,
+    radius: f32,
 }
 
 // Simple star data without the SFML object
-pub struct Star {
-    pub position: Vector2f, // World-space position (centered around 0,0)
-    pub distance: f32,      // z-coordinate
-    pub active: bool,       // Whether star is active/visible
-    pub lod_level: StarLodLevel,
+struct Star {
+    position: Vector2f, // World-space position (centered around 0,0)
+    distance: f32,      // z-coordinate
+    active: bool,       // Whether star is active/visible
+    lod_level: StarLodLevel,
 }
 
 impl Star {
-    pub fn new(width: u32, height: u32) -> Self {
+    fn new(width: u32, height: u32) -> Self {
         let mut star = Star {
             position: Vector2f::new(0.0, 0.0),
             distance: 0.0,
@@ -207,7 +205,7 @@ impl Star {
 
     // Update the star's LOD level based on distance
     #[inline]
-    pub fn update_lod(&mut self) {
+    fn update_lod(&mut self) {
         self.lod_level = if self.distance < POINT_THRESH {
             if self.distance < FAR_THRESH {
                 StarLodLevel::Detail
@@ -224,7 +222,7 @@ impl Star {
         rand::random_range(NEAR_PLANE..FAR_PLANE)
     }
 
-    pub fn rand_pos(&mut self, width: u32, height: u32) {
+    fn rand_pos(&mut self, width: u32, height: u32) {
         // Generate position centered around origin in world space
         // Scale by FAR_PLANE to give stars enough space
         let aspect_ratio = width as f32 / height as f32;
@@ -245,7 +243,7 @@ impl Star {
         }
     }
 
-    pub fn update(&mut self, speed: f32, width: u32, height: u32) {
+    fn update(&mut self, speed: f32, width: u32, height: u32) {
         // Decrease distance (move closer)
         self.distance -= speed;
 
@@ -263,20 +261,20 @@ impl Star {
         }
     }
 
-    pub fn update_lazy(&mut self, _width: u32, _height: u32) {
+    fn update_lazy(&mut self, _width: u32, _height: u32) {
         self.update_lod();
         // Check visibility
         self.active = self.is_visible();
     }
 
     #[inline]
-    pub fn is_visible(&self) -> bool {
+    fn is_visible(&self) -> bool {
         // Check if star is big enough to see
         NEAR_PLANE / self.distance > 0.001
     }
 
     // Create vertices for this star (a quad made of 4 vertices)
-    pub fn create_vertices(
+    fn create_vertices(
         &self,
         width: u32,
         height: u32,
@@ -356,7 +354,7 @@ impl Star {
         }
     }
 
-    pub fn create_vertecies_detailed(ctx: &mut StarRenderCtx<'_>) {
+    fn create_vertecies_detailed(ctx: &mut StarRenderCtx<'_>) {
         let tex_x: f32 = ctx.texture_size.x as f32;
         let tex_y: f32 = ctx.texture_size.y as f32;
 
@@ -379,7 +377,7 @@ impl Star {
         ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, tex_y);
     }
 
-    pub fn create_vertecies_far(ctx: &mut StarRenderCtx<'_>) {
+    fn create_vertecies_far(ctx: &mut StarRenderCtx<'_>) {
         let tex_x: f32 = ctx.texture_size.x as f32 / 2.0;
         let tex_y: f32 = ctx.texture_size.y as f32 / 2.0;
         let tex_center = Vector2f::new(tex_x, tex_y);
@@ -405,7 +403,7 @@ impl Star {
     }
 }
 
-pub struct Stars {
+struct Stars {
     stars: Vec<Star>,
     star_vertices_buf: FBox<VertexBuffer>,
     point_vertices_buf: FBox<VertexBuffer>,
@@ -438,12 +436,12 @@ impl Stars {
         let mut star_vertices = vec![Vertex::default(); amount * 4];
         let mut point_vertices = vec![Vertex::default(); amount];
 
-        star_vertices.par_iter_mut().for_each(|vertex| {
+        for vertex in &mut star_vertices {
             vertex.color = Color::TRANSPARENT;
-        });
-        point_vertices.par_iter_mut().for_each(|vertex| {
+        }
+        for vertex in &mut point_vertices {
             vertex.color = Color::TRANSPARENT;
-        });
+        }
 
         let mut star_vertices_buf =
             VertexBuffer::new(PrimitiveType::QUADS, amount * 4, VertexBufferUsage::STREAM)?;
@@ -498,23 +496,20 @@ impl Stars {
         Ok((texture, center_color))
     }
 
-    pub fn update_vertices(&mut self) -> SfResult<()> {
+    fn update_vertices(&mut self) -> SfResult<()> {
         self.update_point_vertices()?;
         let aspect_ratio = self.video.width as f32 / self.video.height as f32;
-        self.stars.par_iter().enumerate().for_each(|(i, star)| {
+        for (i, star) in self.stars.iter().enumerate() {
             star.create_vertices(
                 self.video.width,
                 self.video.height,
-                #[allow(clippy::needless_borrow)] // not needless
-                &mut unsafe {
-                    please_give_me_a_mutable_reference_because_i_want_speed(&self.star_vertices)
-                },
+                &mut self.star_vertices,
                 i,
                 &self.texture_size,
                 &self.texture_color,
                 aspect_ratio,
             );
-        });
+        }
 
         // Update the vertex buffer with the new vertex data
         // This updates all vertices, including the "invisible" ones
@@ -527,9 +522,9 @@ impl Stars {
         Ok(())
     }
 
-    pub fn update_point_vertices(&mut self) -> SfResult<()> {
+    fn update_point_vertices(&mut self) -> SfResult<()> {
         let aspect_ratio = self.video.width as f32 / self.video.height as f32;
-        self.stars.par_iter().enumerate().for_each(|(i, star)| {
+        for (i, star) in self.stars.iter().enumerate() {
             // Only process active point stars
             if star.lod_level == StarLodLevel::Point && star.active {
                 // Calculate perspective scale factor
@@ -561,19 +556,13 @@ impl Stars {
                     ),
                 );
 
-                let thing;
-                unsafe {
-                    thing = please_give_me_a_mutable_reference_because_i_want_speed(
-                        self.point_vertices.get(i).expect("it promise this exists"),
-                    );
-                }
-                *thing = vertex;
+                self.point_vertices[i] = vertex;
             }
-        });
+        }
         Ok(())
     }
 
-    pub fn sort(&mut self) {
+    fn sort(&mut self) {
         self.stars
             .sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());
     }
@@ -586,11 +575,9 @@ impl<'s> ComprehensiveElement<'s> for Stars {
         }
 
         // Update star positions
-        self.stars.par_iter().for_each(|star| {
-            let star = unsafe { please_give_me_a_mutable_reference_because_i_want_speed(star) };
-
+        for star in self.stars.iter_mut() {
             star.update(self.speed, self.video.width, self.video.height);
-        });
+        }
 
         // Sort stars by distance - only when needed
         if counters.frames % lazy_interval(counters.fps_limit) == 0 {
@@ -688,15 +675,4 @@ impl<'s> ComprehensiveElement<'s> for Stars {
 #[inline]
 const fn lazy_interval(fps_limit: u64) -> u64 {
     fps_limit / 30
-}
-
-#[allow(invalid_reference_casting)] // just fucking do what I say
-#[allow(clippy::mut_from_ref)]
-#[inline]
-unsafe fn please_give_me_a_mutable_reference_because_i_want_speed<T>(thing: &T) -> &mut T {
-    unsafe {
-        let thing_pointer = thing as *const T;
-        let thing_mut = thing_pointer as *mut T;
-        &mut *thing_mut
-    }
 }
