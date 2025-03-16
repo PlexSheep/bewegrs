@@ -1,5 +1,4 @@
 use sfml::{
-    SfResult,
     cpp::FBox,
     graphics::{
         Color, FloatRect, Font, Image, IntRect, PrimitiveType, RectangleShape, RenderTarget,
@@ -7,18 +6,19 @@ use sfml::{
     },
     system::Vector2f,
     window::{Event, Key, Style, VideoMode},
+    SfResult,
 };
 use tracing::{debug, info};
 
 use bewegrs::{
     counters::Counters,
     setup,
-    ui::{ComprehensiveElement, ComprehensiveUi, elements::info::Info},
+    ui::{elements::info::Info, ComprehensiveElement, ComprehensiveUi},
 };
 
 const MAX_FPS: usize = 60;
 const BG: Color = Color::rgb(30, 20, 20);
-const STAR_AMOUNT: usize = 800_000;
+const STAR_AMOUNT: usize = 400_000;
 const DEFAULT_SPEED: f32 = 0.8;
 
 // Star configuration
@@ -194,18 +194,22 @@ impl Star {
             // Top-left vertex
             vertices[i].position = Vector2f::new(screen_x - radius, screen_y - radius);
             vertices[i].color = color;
+            vertices[i].tex_coords = Vector2f::new(0.0, 0.0);
 
             // Top-right vertex
             vertices[i + 1].position = Vector2f::new(screen_x + radius, screen_y - radius);
             vertices[i + 1].color = color;
+            vertices[i + 1].tex_coords = Vector2f::new(100.0, 0.0);
 
             // Bottom-right vertex
             vertices[i + 2].position = Vector2f::new(screen_x + radius, screen_y + radius);
             vertices[i + 2].color = color;
+            vertices[i + 2].tex_coords = Vector2f::new(100.0, 100.0);
 
             // Bottom-left vertex
             vertices[i + 3].position = Vector2f::new(screen_x - radius, screen_y + radius);
             vertices[i + 3].color = color;
+            vertices[i + 3].tex_coords = Vector2f::new(0.0, 100.0);
         }
         // If star is not active, create an invisible quad
         else {
@@ -215,6 +219,7 @@ impl Star {
             for j in 0..4 {
                 vertices[i + j].position = Vector2f::new(0.0, 0.0);
                 vertices[i + j].color = transparent;
+                vertices[i + j].tex_coords = Vector2f::new(0.0, 0.0);
             }
         }
     }
@@ -226,10 +231,16 @@ struct Stars {
     vertices: Vec<Vertex>,
     video: VideoMode,
     speed: f32,
+    texture: FBox<Texture>,
 }
 
 impl Stars {
     pub fn new(video: VideoMode, amount: usize) -> SfResult<Self> {
+        // Load star texture
+        let star_image = Image::from_memory(include_bytes!("../resources/logo.png"))?;
+        let mut texture = Texture::from_image(&star_image, IntRect::default())?;
+        texture.set_smooth(true); // Enable smoothing for better scaling
+
         // Create stars
         let mut stars: Vec<Star> = Vec::with_capacity(amount);
         for _ in 0..amount {
@@ -265,6 +276,7 @@ impl Stars {
             vertices,
             video,
             speed: DEFAULT_SPEED,
+            texture,
         })
     }
 
@@ -311,8 +323,11 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
         _counters: &Counters<N>,
         _info: &mut Info<'s>,
     ) {
+        // Create render states with our texture
+        let mut states = sfml::graphics::RenderStates::default();
+        states.texture = Some(&*self.texture);
         // Draw all stars with a single draw call
-        sfml_w.draw(&*self.vertex_buffer);
+        sfml_w.draw_with_renderstates(&*self.vertex_buffer, &states);
     }
 
     fn z_level(&self) -> u16 {
