@@ -13,6 +13,7 @@ repository = "https://github.com/PlexSheep/bewegrs"
 [dependencies]
 egui = "0.31.1"
 egui-sfml = "0.9.0"
+getopts = "0.2.21"
 rand = "0.9.0"
 ringbuffer = "0.15.0"
 sfml = "0.24.0"

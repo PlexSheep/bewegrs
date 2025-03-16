@@ -1,3 +1,9 @@
+use std::{
+    path::{Path, PathBuf},
+    process::exit,
+};
+
+use getopts::Options;
 use sfml::{
     cpp::FBox,
     graphics::{
@@ -30,6 +36,27 @@ const SPREAD: f32 = FAR_PLANE * 40.0;
 
 fn main() -> SfResult<()> {
     setup();
+    let args: Vec<_> = std::env::args().collect();
+    let program = args[0].clone();
+
+    let mut opts = Options::new();
+    opts.optopt("s", "sprite", "sprite texture to use for stars", "IMAGE");
+    opts.optflag("h", "help", "print help menu");
+    opts.optflag("l", "hide-logo", "hide the logo");
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => m,
+        Err(f) => {
+            panic!("{}", f.to_string())
+        }
+    };
+    if matches.opt_present("help") {
+        print_usage(&program, opts);
+        return Ok(());
+    }
+    let sprite_path: Option<PathBuf> = matches.opt_get("sprite").expect("boom");
+    if let Some(path) = &sprite_path {
+        info!("using sprite: {}", path.to_string_lossy());
+    }
 
     let video = VideoMode::fullscreen_modes()[0];
     info!("video mode: {video:?}");
@@ -52,10 +79,12 @@ fn main() -> SfResult<()> {
     let mut gui = ComprehensiveUi::build(&window, &font, &video, &counter)?;
     gui.set_no_cursor(&mut window, true);
 
-    gui.info
-        .set_logo(&texture, "Christoph J. Scherr\nsoftware@cscherr.de")?;
+    if !matches.opt_present("hide-logo") {
+        gui.info
+            .set_logo(&texture, "Christoph J. Scherr\nsoftware@cscherr.de")?;
+    }
 
-    let stars = Stars::new(video, STAR_AMOUNT)?;
+    let stars = Stars::new(video, STAR_AMOUNT, sprite_path)?;
     gui.info.set_custom_info("stars", stars.stars.len());
     gui.info.set_custom_info("speed", stars.speed);
     gui.add(Box::new(stars));
@@ -93,6 +122,11 @@ fn main() -> SfResult<()> {
         window.display();
     }
     Ok(())
+}
+
+fn print_usage(program: &str, opts: Options) {
+    let brief = format!("Usage: {} [options]", program);
+    print!("{}", opts.usage(&brief));
 }
 
 // Simple star data without the SFML object
@@ -244,8 +278,8 @@ struct Stars {
 }
 
 impl Stars {
-    pub fn new(video: VideoMode, amount: usize) -> SfResult<Self> {
-        let texture = Self::create_star_texture()?;
+    pub fn new(video: VideoMode, amount: usize, sprite_path: Option<PathBuf>) -> SfResult<Self> {
+        let texture = Self::create_star_texture(sprite_path)?;
 
         debug!(
             "Star texture dimensions: {}x{}",
@@ -293,9 +327,12 @@ impl Stars {
     }
 
     // Creates a procedural star texture
-    fn create_star_texture() -> SfResult<FBox<Texture>> {
+    fn create_star_texture(sprite_path: Option<PathBuf>) -> SfResult<FBox<Texture>> {
         // Load star texture
-        let star_image = Image::from_memory(include_bytes!("../resources/star.png"))?;
+        let star_image = match sprite_path {
+            None => Image::from_memory(include_bytes!("../resources/star.png"))?,
+            Some(p) => Image::from_file(p.to_str().expect("could not convert path to str"))?,
+        };
         let mut texture = Texture::from_image(&star_image, IntRect::default())?;
         texture.set_smooth(true); // Enable smoothing for better scaling
 
