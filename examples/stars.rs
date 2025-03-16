@@ -263,8 +263,11 @@ impl Star {
             let radius = STAR_RADIUS * scale;
 
             let darkness = 255 - brightness;
-            let adjusted_color =
-                Color::rgb(color.r - darkness, color.g - darkness, color.b - darkness);
+            let adjusted_color = Color::rgb(
+                color.r.saturating_sub(darkness),
+                color.g.saturating_sub(darkness),
+                color.b.saturating_sub(darkness),
+            );
 
             let mut ctx = StarRenderCtx {
                 vertices,
