@@ -1,8 +1,8 @@
 use egui_sfml::SfEgui;
-use sfml::SfResult;
 use sfml::cpp::FBox;
 use sfml::graphics::{Font, RenderWindow};
 use sfml::window::{Event, VideoMode};
+use sfml::SfResult;
 
 use crate::counters::Counters;
 
@@ -88,5 +88,15 @@ impl<'s, const N: usize> ComprehensiveUi<'s, N> {
             element.update(counters, &mut self.info);
         }
         self.info.update(counters);
+    }
+
+    // BUG: this does not work
+    pub fn set_no_cursor(&self, window: &mut FBox<RenderWindow>, arg: bool) {
+        window.set_mouse_cursor_visible(arg);
+        self.egui_window.context().set_cursor_icon(if arg {
+            egui::CursorIcon::None
+        } else {
+            egui::CursorIcon::default()
+        });
     }
 }

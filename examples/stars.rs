@@ -1,5 +1,4 @@
 use sfml::{
-    SfResult,
     cpp::FBox,
     graphics::{
         Color, FloatRect, Font, Image, IntRect, PrimitiveType, RectangleShape, RenderTarget,
@@ -7,18 +6,19 @@ use sfml::{
     },
     system::Vector2f,
     window::{Event, Key, Style, VideoMode},
+    SfResult,
 };
 use tracing::{debug, info};
 
 use bewegrs::{
     counters::Counters,
     setup,
-    ui::{ComprehensiveElement, ComprehensiveUi, elements::info::Info},
+    ui::{elements::info::Info, ComprehensiveElement, ComprehensiveUi},
 };
 
 const MAX_FPS: usize = 60;
 const BG: Color = Color::rgb(30, 20, 20);
-const STAR_AMOUNT: usize = 200_000;
+const STAR_AMOUNT: usize = 800_000;
 const DEFAULT_SPEED: f32 = 0.8;
 
 // Star configuration
@@ -40,7 +40,6 @@ fn main() -> SfResult<()> {
     )?;
     let mut counter = Counters::<MAX_FPS>::start()?;
     window.set_framerate_limit(MAX_FPS as u32);
-    window.set_mouse_cursor_visible(false);
 
     let mut font = Font::new()?;
     font.load_from_memory_static(include_bytes!("../resources/sansation.ttf"))?;
@@ -48,7 +47,10 @@ fn main() -> SfResult<()> {
     let profile_image = &*Image::from_memory(include_bytes!("../resources/profile.png"))?;
     let mut texture = Texture::from_image(profile_image, IntRect::default())?;
     texture.set_smooth(true);
+
     let mut gui = ComprehensiveUi::build(&window, &font, &video, &counter)?;
+    gui.set_no_cursor(&mut window, true);
+
     gui.info
         .set_logo(&texture, "Christoph J. Scherr\nsoftware@cscherr.de")?;
 
