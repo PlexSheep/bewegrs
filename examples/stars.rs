@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use getopts::Options;
 use sfml::{
-    SfResult,
     cpp::FBox,
     graphics::{
         Color, FloatRect, Font, Image, IntRect, PrimitiveType, RectangleShape, RenderTarget,
@@ -10,13 +9,14 @@ use sfml::{
     },
     system::{Vector2f, Vector2u},
     window::{Event, Key, Style, VideoMode},
+    SfResult,
 };
 use tracing::{debug, error, info};
 
 use bewegrs::{
     counters::Counters,
     setup,
-    ui::{ComprehensiveElement, ComprehensiveUi, elements::info::Info},
+    ui::{elements::info::Info, ComprehensiveElement, ComprehensiveUi},
 };
 
 const MAX_FPS: usize = 60;
@@ -25,11 +25,14 @@ const STAR_AMOUNT: usize = 400_000;
 const DEFAULT_SPEED: f32 = 0.8;
 
 // Star configuration
-const STAR_RADIUS: f32 = 30.0;
-const FAR_PLANE: f32 = 800.0;
+const STAR_RADIUS: f32 = 150.0;
+const FAR_PLANE: f32 = 2200.0;
 const NEAR_PLANE: f32 = 5.5;
 const BEHIND_CAMERA: f32 = 60.5;
 const SPREAD: f32 = FAR_PLANE * 40.0;
+
+// LOD configuration
+const FAR_THRESH: f32 = 1000.0;
 
 fn main() -> SfResult<()> {
     setup();
@@ -132,9 +135,6 @@ enum StarLodLevel {
     Far,
 }
 
-impl StarLodLevel {
-    const FAR_THRESH: f32 = 300.0;
-}
 struct StarRenderCtx<'render> {
     vertices: &'render mut [Vertex],
     texture_size: &'render Vector2u,
@@ -169,7 +169,7 @@ impl Star {
 
     // Update the star's LOD level based on distance
     fn update_lod(&mut self) {
-        self.lod_level = if self.distance < StarLodLevel::FAR_THRESH {
+        self.lod_level = if self.distance < FAR_THRESH {
             StarLodLevel::Detail
         } else {
             StarLodLevel::Far
@@ -230,7 +230,7 @@ impl Star {
         // we could also check if the star is in the viewport
 
         // Check if star is big enough to see
-        scale > 0.01
+        scale > 0.001
     }
 
     // Create vertices for this star (a quad made of 4 vertices)
@@ -468,20 +468,18 @@ impl Stars {
 }
 
 impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
-    fn update(&mut self, counters: &Counters<N>, _info: &mut Info<'s>) {
+    fn update(&mut self, counters: &Counters<N>, info: &mut Info<'s>) {
         // Update star positions
         for star in self.stars.iter_mut() {
             star.update(self.video.width, self.video.height, self.speed);
         }
 
-        // Sort less frequently - only every 10 frames or so
-        let should_resort = counters.frames % 10 == 0 || self.speed > 5.0;
-
-        if should_resort {
-            // Sort stars by distance - only when needed
+        // Sort stars by distance - only when needed
+        if self.speed != 0. {
             self.stars
                 .sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());
             self.last_sorted_frame = counters.frames;
+            info.set_custom_info("last_sort", self.last_sorted_frame);
         }
 
         // Update vertex buffer
