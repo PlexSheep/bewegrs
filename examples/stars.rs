@@ -139,6 +139,18 @@ impl StarLodLevel {
     const NORMAL_THRESH: f32 = 200.0;
     const FAR_THRESH: f32 = 400.0;
 }
+struct StarRenderCtx<'render> {
+    width: u32,
+    height: u32,
+    vertices: &'render mut [Vertex],
+    index: usize,
+    texture_size: &'render Vector2u,
+    color: &'render Color,
+    i: usize,
+    screen_x: f32,
+    screen_y: f32,
+    radius: f32,
+}
 
 // Simple star data without the SFML object
 struct Star {
@@ -262,18 +274,20 @@ impl Star {
 
             let color = Color::rgb(brightness.saturating_add(20), brightness, brightness);
 
-            self.create_vertecies_detailed(
+            let mut ctx = StarRenderCtx {
                 width,
                 height,
                 vertices,
                 index,
                 texture_size,
-                &color,
+                color: &color,
                 i,
                 screen_x,
                 screen_y,
                 radius,
-            );
+            };
+
+            Self::create_vertecies_detailed(&mut ctx);
         }
         // If star is not active, create an invisible quad
         else {
@@ -288,38 +302,31 @@ impl Star {
         }
     }
 
-    fn create_vertecies_detailed(
-        &self,
-        width: u32,
-        height: u32,
-        vertices: &mut [Vertex],
-        index: usize,
-        texture_size: &Vector2u,
-        color: &Color,
-        i: usize,
-        screen_x: f32,
-        screen_y: f32,
-        radius: f32,
-    ) {
+    fn create_vertecies_detailed(ctx: &mut StarRenderCtx<'_>) {
         // Top-left vertex
-        vertices[i].position = Vector2f::new(screen_x - radius, screen_y - radius);
-        vertices[i].color = *color;
-        vertices[i].tex_coords = Vector2f::new(0.0, 0.0);
+        ctx.vertices[ctx.i].position =
+            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y - ctx.radius);
+        ctx.vertices[ctx.i].color = *ctx.color;
+        ctx.vertices[ctx.i].tex_coords = Vector2f::new(0.0, 0.0);
 
         // Top-right vertex
-        vertices[i + 1].position = Vector2f::new(screen_x + radius, screen_y - radius);
-        vertices[i + 1].color = *color;
-        vertices[i + 1].tex_coords = Vector2f::new(texture_size.x as f32, 0.0);
+        ctx.vertices[ctx.i + 1].position =
+            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y - ctx.radius);
+        ctx.vertices[ctx.i + 1].color = *ctx.color;
+        ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(ctx.texture_size.x as f32, 0.0);
 
         // Bottom-right vertex
-        vertices[i + 2].position = Vector2f::new(screen_x + radius, screen_y + radius);
-        vertices[i + 2].color = *color;
-        vertices[i + 2].tex_coords = Vector2f::new(texture_size.x as f32, texture_size.y as f32);
+        ctx.vertices[ctx.i + 2].position =
+            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y + ctx.radius);
+        ctx.vertices[ctx.i + 2].color = *ctx.color;
+        ctx.vertices[ctx.i + 2].tex_coords =
+            Vector2f::new(ctx.texture_size.x as f32, ctx.texture_size.y as f32);
 
         // Bottom-left vertex
-        vertices[i + 3].position = Vector2f::new(screen_x - radius, screen_y + radius);
-        vertices[i + 3].color = *color;
-        vertices[i + 3].tex_coords = Vector2f::new(0.0, texture_size.y as f32);
+        ctx.vertices[ctx.i + 3].position =
+            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y + ctx.radius);
+        ctx.vertices[ctx.i + 3].color = *ctx.color;
+        ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, ctx.texture_size.y as f32);
     }
 }
 
