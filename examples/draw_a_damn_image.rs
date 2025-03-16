@@ -1,17 +1,12 @@
 use sfml::{
     SfResult,
-    graphics::{Color, Font, Image, IntRect, RenderTarget, RenderWindow, Sprite, Texture},
-    window::{Event, Key, Style, VideoMode},
+    graphics::{Font, Image, IntRect, RenderTarget, RenderWindow, Sprite, Texture},
+    system::{Time, sleep},
+    window::{Style, VideoMode},
 };
 fn main() -> SfResult<()> {
-    let video = VideoMode::fullscreen_modes()[0];
-    let mut window = RenderWindow::new(
-        video,
-        "Custom shape",
-        Style::DEFAULT | Style::FULLSCREEN,
-        &Default::default(),
-    )?;
-    window.set_framerate_limit(60);
+    let video = VideoMode::desktop_mode();
+    let mut window = RenderWindow::new(video, "Custom shape", Style::DEFAULT, &Default::default())?;
 
     let mut font = Font::new()?;
     font.load_from_memory_static(include_bytes!("../resources/sansation.ttf"))?;
@@ -22,22 +17,13 @@ fn main() -> SfResult<()> {
     )?;
     let image = Sprite::with_texture(&texture);
 
-    'mainloop: loop {
-        while let Some(event) = window.poll_event() {
-            match event {
-                Event::Closed
-                | Event::KeyPressed {
-                    code: Key::Escape, ..
-                } => break 'mainloop,
-                _ => (),
-            }
-        }
+    // dont even need a loop since nothing changes
 
-        window.clear(Color::BLACK);
+    window.draw(&image);
 
-        window.draw(&image);
+    window.display();
 
-        window.display();
-    }
+    sleep(Time::seconds(4.0)); // just so you can look at it
+
     Ok(())
 }
