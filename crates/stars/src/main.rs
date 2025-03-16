@@ -24,7 +24,7 @@ use bewegrs::{
 
 const MAX_FPS: usize = 60;
 const BG: Color = Color::rgb(30, 20, 20);
-const STAR_AMOUNT: usize = 400_000;
+const STAR_AMOUNT: usize = 800_000;
 const DEFAULT_SPEED: f32 = 0.8;
 
 // Star configuration
@@ -206,7 +206,7 @@ impl Star {
         }
     }
 
-    fn update(&mut self, width: u32, height: u32, speed: f32) {
+    fn update(&mut self, speed: f32) {
         // Decrease distance (move closer)
         self.distance -= speed;
     }
@@ -485,7 +485,7 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
 
         // Update star positions
         for star in self.stars.iter_mut() {
-            star.update(self.video.width, self.video.height, self.speed);
+            star.update(self.speed);
         }
 
         // Sort stars by distance - only when needed
