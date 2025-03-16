@@ -1,10 +1,7 @@
 use sfml::{
-    graphics::{
-        glsl::Vec2, CircleShape, Color, CustomShape, Font, Image, IntRect, RectangleShape,
-        RenderTarget, RenderWindow, Shape, Sprite, Texture, Transformable,
-    },
-    window::{Event, Key, Style, VideoMode},
     SfResult,
+    graphics::{Color, Font, Image, IntRect, RenderTarget, RenderWindow, Sprite, Texture},
+    window::{Event, Key, Style, VideoMode},
 };
 fn main() -> SfResult<()> {
     let video = VideoMode::fullscreen_modes()[0];
