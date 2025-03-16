@@ -458,7 +458,7 @@ impl Stars {
             stars,
             star_vertices_buf,
             star_vertices,
-            point_vertices: point_vertices.into(),
+            point_vertices,
             video,
             speed: DEFAULT_SPEED,
             last_sorted_frame: 0,
