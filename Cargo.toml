@@ -19,3 +19,7 @@ ringbuffer = "0.15.0"
 sfml = "0.24.0"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
+
+[profile.profiling]
+inherits = "release"
+debug = true
