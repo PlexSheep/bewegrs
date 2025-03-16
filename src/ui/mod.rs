@@ -1,8 +1,8 @@
 use egui_sfml::SfEgui;
+use sfml::SfResult;
 use sfml::cpp::FBox;
 use sfml::graphics::{Font, RenderWindow};
 use sfml::window::{Event, VideoMode};
-use sfml::SfResult;
 
 use crate::counters::Counters;
 

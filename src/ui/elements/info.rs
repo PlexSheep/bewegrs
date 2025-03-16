@@ -2,14 +2,13 @@ use std::collections::HashMap;
 use std::fmt::{Display, Write};
 
 use egui_sfml::{DrawInput, SfEgui};
+use sfml::SfResult;
 use sfml::cpp::FBox;
 use sfml::graphics::{
-    Color, Font, RectangleShape, RenderTarget, RenderWindow, Shape, Sprite, Text, Texture,
-    Transformable,
+    Color, Font, RenderTarget, RenderWindow, Shape, Sprite, Text, Texture, Transformable,
 };
 use sfml::system::Vector2f;
 use sfml::window::{Key, VideoMode};
-use sfml::SfResult;
 use tracing::{debug, error};
 
 use crate::counters::Counters;
