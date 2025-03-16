@@ -129,14 +129,10 @@ fn print_usage(program: &str, opts: Options) {
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 enum StarLodLevel {
     Detail,
-    Normal,
     Far,
-    Minimal,
 }
 
 impl StarLodLevel {
-    const DETAIL_THRESH: f32 = 40.0;
-    const NORMAL_THRESH: f32 = 200.0;
     const FAR_THRESH: f32 = 400.0;
 }
 struct StarRenderCtx<'render> {
@@ -166,7 +162,7 @@ impl Star {
             position: Vector2f::new(0.0, 0.0),
             distance: 0.0,
             active: true,
-            lod_level: StarLodLevel::Normal,
+            lod_level: StarLodLevel::Detail,
         };
 
         star.rand_pos(width, height);
@@ -176,14 +172,10 @@ impl Star {
 
     // Update the star's LOD level based on distance
     fn update_lod(&mut self) {
-        self.lod_level = if self.distance < StarLodLevel::DETAIL_THRESH {
+        self.lod_level = if self.distance < StarLodLevel::FAR_THRESH {
             StarLodLevel::Detail
-        } else if self.distance < StarLodLevel::NORMAL_THRESH {
-            StarLodLevel::Normal
-        } else if self.distance < StarLodLevel::FAR_THRESH {
-            StarLodLevel::Far
         } else {
-            StarLodLevel::Minimal
+            StarLodLevel::Far
         };
     }
 
@@ -289,9 +281,7 @@ impl Star {
 
             match self.lod_level {
                 StarLodLevel::Detail => Self::create_vertecies_detailed(&mut ctx),
-                StarLodLevel::Normal => Self::create_vertecies_normal(&mut ctx),
                 StarLodLevel::Far => Self::create_vertecies_far(&mut ctx),
-                StarLodLevel::Minimal => Self::create_vertecies_mini(&mut ctx),
                 _ => (),
             }
         }
@@ -335,85 +325,31 @@ impl Star {
         ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, ctx.texture_size.y as f32);
     }
 
-    fn create_vertecies_normal(ctx: &mut StarRenderCtx<'_>) {
-        // Top-left vertex
-        ctx.vertices[ctx.i].position =
-            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y - ctx.radius);
-        ctx.vertices[ctx.i].color = *ctx.color;
-        ctx.vertices[ctx.i].tex_coords = Vector2f::new(0.0, 0.0);
-
-        // Top-right vertex
-        ctx.vertices[ctx.i + 1].position =
-            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y - ctx.radius);
-        ctx.vertices[ctx.i + 1].color = *ctx.color;
-        ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(ctx.texture_size.x as f32, 0.0);
-
-        // Bottom-right vertex
-        ctx.vertices[ctx.i + 2].position =
-            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y + ctx.radius);
-        ctx.vertices[ctx.i + 2].color = *ctx.color;
-        ctx.vertices[ctx.i + 2].tex_coords =
-            Vector2f::new(ctx.texture_size.x as f32, ctx.texture_size.y as f32);
-
-        // Bottom-left vertex
-        ctx.vertices[ctx.i + 3].position =
-            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y + ctx.radius);
-        ctx.vertices[ctx.i + 3].color = *ctx.color;
-        ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, ctx.texture_size.y as f32);
-    }
-
     fn create_vertecies_far(ctx: &mut StarRenderCtx<'_>) {
-        // Top-left vertex
-        ctx.vertices[ctx.i].position =
-            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y - ctx.radius);
-        ctx.vertices[ctx.i].color = *ctx.color;
-        ctx.vertices[ctx.i].tex_coords = Vector2f::new(0.0, 0.0);
+        let radius = ctx.radius;
 
-        // Top-right vertex
+        let tex_x: f32 = ctx.texture_size.x as f32 / 2.0;
+        let tex_y: f32 = ctx.texture_size.y as f32 / 2.0;
+
+        // Set vertices
+        for j in 0..4 {
+            ctx.vertices[ctx.i + j].color = *ctx.color;
+        }
+
+        // Position vertices for a small square
+        ctx.vertices[ctx.i].position = Vector2f::new(ctx.screen_x - radius, ctx.screen_y - radius);
         ctx.vertices[ctx.i + 1].position =
-            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y - ctx.radius);
-        ctx.vertices[ctx.i + 1].color = *ctx.color;
-        ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(ctx.texture_size.x as f32, 0.0);
-
-        // Bottom-right vertex
+            Vector2f::new(ctx.screen_x + radius, ctx.screen_y - radius);
         ctx.vertices[ctx.i + 2].position =
-            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y + ctx.radius);
-        ctx.vertices[ctx.i + 2].color = *ctx.color;
-        ctx.vertices[ctx.i + 2].tex_coords =
-            Vector2f::new(ctx.texture_size.x as f32, ctx.texture_size.y as f32);
-
-        // Bottom-left vertex
+            Vector2f::new(ctx.screen_x + radius, ctx.screen_y + radius);
         ctx.vertices[ctx.i + 3].position =
-            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y + ctx.radius);
-        ctx.vertices[ctx.i + 3].color = *ctx.color;
-        ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, ctx.texture_size.y as f32);
-    }
+            Vector2f::new(ctx.screen_x - radius, ctx.screen_y + radius);
 
-    fn create_vertecies_mini(ctx: &mut StarRenderCtx<'_>) {
-        // Top-left vertex
-        ctx.vertices[ctx.i].position =
-            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y - ctx.radius);
-        ctx.vertices[ctx.i].color = *ctx.color;
-        ctx.vertices[ctx.i].tex_coords = Vector2f::new(0.0, 0.0);
-
-        // Top-right vertex
-        ctx.vertices[ctx.i + 1].position =
-            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y - ctx.radius);
-        ctx.vertices[ctx.i + 1].color = *ctx.color;
-        ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(ctx.texture_size.x as f32, 0.0);
-
-        // Bottom-right vertex
-        ctx.vertices[ctx.i + 2].position =
-            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y + ctx.radius);
-        ctx.vertices[ctx.i + 2].color = *ctx.color;
-        ctx.vertices[ctx.i + 2].tex_coords =
-            Vector2f::new(ctx.texture_size.x as f32, ctx.texture_size.y as f32);
-
-        // Bottom-left vertex
-        ctx.vertices[ctx.i + 3].position =
-            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y + ctx.radius);
-        ctx.vertices[ctx.i + 3].color = *ctx.color;
-        ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, ctx.texture_size.y as f32);
+        // Use a fixed texture coordinate that's known to be non-transparent
+        ctx.vertices[ctx.i].tex_coords = Vector2f::new(tex_x, tex_y);
+        ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(tex_x, tex_y);
+        ctx.vertices[ctx.i + 2].tex_coords = Vector2f::new(tex_x, tex_y);
+        ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(tex_x, tex_y);
     }
 }
 
@@ -486,6 +422,18 @@ impl Stars {
             None => Image::from_memory(include_bytes!("../resources/star.png"))?,
             Some(p) => Image::from_file(p.to_str().expect("could not convert path to str"))?,
         };
+
+        // Debug: Check the center pixel
+        let center_x = star_image.size().x / 2;
+        let center_y = star_image.size().y / 2;
+        let center_color = star_image
+            .pixel_at(center_x, center_y)
+            .expect("could not get center color of star sprite");
+        info!(
+            "Center pixel of star texture: R:{}, G:{}, B:{}, A:{}",
+            center_color.r, center_color.g, center_color.b, center_color.a
+        );
+
         let mut texture = Texture::from_image(&star_image, IntRect::default())?;
         texture.set_smooth(true); // Enable smoothing for better scaling
 
@@ -563,24 +511,10 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
                 .count(),
         );
         info.set_custom_info(
-            "LOD_Normal",
-            self.stars
-                .iter()
-                .filter(|s| s.lod_level == StarLodLevel::Normal)
-                .count(),
-        );
-        info.set_custom_info(
             "LOD_Far",
             self.stars
                 .iter()
                 .filter(|s| s.lod_level == StarLodLevel::Far)
-                .count(),
-        );
-        info.set_custom_info(
-            "LOD_Minimal",
-            self.stars
-                .iter()
-                .filter(|s| s.lod_level == StarLodLevel::Minimal)
                 .count(),
         );
     }
