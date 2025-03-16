@@ -1,19 +1,19 @@
 use sfml::{
     cpp::FBox,
     graphics::{
-        Color, FloatRect, Font, PrimitiveType, RenderTarget, RenderWindow, Vertex, VertexBuffer,
-        VertexBufferUsage,
+        Color, FloatRect, Font, Image, IntRect, PrimitiveType, RectangleShape, RenderTarget,
+        RenderWindow, Shape, Texture, Transformable, Vertex, VertexBuffer, VertexBufferUsage,
     },
     system::Vector2f,
     window::{Event, Key, Style, VideoMode},
     SfResult,
 };
-use tracing::info;
+use tracing::{debug, info};
 
 use bewegrs::{
     counters::Counters,
     setup,
-    ui::{elements::info::InfoElement, ComprehensiveElement, ComprehensiveUi},
+    ui::{elements::info::Info, ComprehensiveElement, ComprehensiveUi},
 };
 
 const MAX_FPS: usize = 60;
@@ -45,12 +45,24 @@ fn main() -> SfResult<()> {
     let mut font = Font::new()?;
     font.load_from_memory_static(include_bytes!("../resources/sansation.ttf"))?;
 
+    let profile_image = &*Image::from_memory(include_bytes!("../resources/profile.png"))?;
+    let mut texture = Texture::from_image(profile_image, IntRect::default())?;
+    texture.set_smooth(true);
     let mut gui = ComprehensiveUi::build(&window, &font, &video, &counter)?;
+    gui.info.set_logo(
+        &texture,
+        "hello AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    )?;
 
     let stars = Stars::new(video, STAR_AMOUNT)?;
     gui.info.set_custom_info("stars", stars.stars.len());
     gui.info.set_custom_info("speed", stars.speed);
     gui.add(Box::new(stars));
+
+    let mut logo = RectangleShape::new();
+
+    logo.set_position((400.0, 400.0));
+    debug!("{logo:?}");
 
     'mainloop: loop {
         while let Some(event) = window.poll_event() {
@@ -73,6 +85,8 @@ fn main() -> SfResult<()> {
 
         window.clear(BG);
         gui.draw_with(&mut window, &counter);
+
+        window.draw(&logo);
 
         counter.frame_prepare_display();
         window.display();
@@ -278,7 +292,7 @@ impl Stars {
 }
 
 impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
-    fn update(&mut self, _counters: &Counters<N>, _info: &mut InfoElement<'s>) {
+    fn update(&mut self, _counters: &Counters<N>, _info: &mut Info<'s>) {
         // Update star positions
         for star in self.stars.iter_mut() {
             star.update(self.video.width, self.video.height, self.speed);
@@ -295,7 +309,7 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
         sfml_w: &mut FBox<RenderWindow>,
         _egui_w: &mut egui_sfml::SfEgui,
         _counters: &Counters<N>,
-        _info: &mut InfoElement<'s>,
+        _info: &mut Info<'s>,
     ) {
         // Draw all stars with a single draw call
         sfml_w.draw(&*self.vertex_buffer);
@@ -305,7 +319,7 @@ impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
         0
     }
 
-    fn process_event(&mut self, event: &Event, info: &mut InfoElement<'s>) {
+    fn process_event(&mut self, event: &Event, info: &mut Info<'s>) {
         match event {
             Event::KeyPressed {
                 code: Key::W,

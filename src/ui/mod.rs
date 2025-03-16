@@ -6,7 +6,7 @@ use sfml::SfResult;
 
 use crate::counters::Counters;
 
-use self::elements::info::InfoElement;
+use self::elements::info::Info;
 
 pub const UI_LEVEL: u16 = 20000;
 
@@ -21,21 +21,21 @@ pub trait ComprehensiveElement<'s, const N: usize>: 's {
         sfml_w: &mut FBox<RenderWindow>,
         egui_w: &mut SfEgui,
         counters: &Counters<N>,
-        info: &mut InfoElement<'s>,
+        info: &mut Info<'s>,
     );
 
     #[allow(unused_variables)]
-    fn process_event(&mut self, event: &Event, info: &mut InfoElement<'s>) {}
+    fn process_event(&mut self, event: &Event, info: &mut Info<'s>) {}
     #[allow(unused_variables)]
-    fn update_slow(&mut self, counters: &Counters<N>, info: &mut InfoElement<'s>) {}
+    fn update_slow(&mut self, counters: &Counters<N>, info: &mut Info<'s>) {}
     #[allow(unused_variables)]
-    fn update(&mut self, counters: &Counters<N>, info: &mut InfoElement<'s>) {}
+    fn update(&mut self, counters: &Counters<N>, info: &mut Info<'s>) {}
 }
 
 pub struct ComprehensiveUi<'s, const N: usize> {
     egui_window: SfEgui,
     pub font: &'s FBox<Font>,
-    pub info: InfoElement<'s>,
+    pub info: Info<'s>,
     elements: Vec<Box<dyn ComprehensiveElement<'s, N>>>,
 }
 
@@ -58,7 +58,7 @@ impl<'s, const N: usize> ComprehensiveUi<'s, N> {
         let gui = Self {
             egui_window: SfEgui::new(window),
             elements: Vec::new(),
-            info: InfoElement::new(font, video, counters),
+            info: Info::new(font, video, counters),
             font,
         };
         Ok(gui)

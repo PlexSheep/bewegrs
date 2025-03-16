@@ -3,22 +3,26 @@ use std::fmt::{Display, Write};
 
 use egui_sfml::{DrawInput, SfEgui};
 use sfml::cpp::FBox;
-use sfml::graphics::{Color, Font, RenderTarget, RenderWindow, Text, Transformable};
+use sfml::graphics::{
+    Color, Font, RectangleShape, RenderTarget, RenderWindow, Shape, Sprite, Text, Texture,
+    Transformable,
+};
 use sfml::system::Vector2f;
 use sfml::window::{Key, VideoMode};
+use sfml::SfResult;
 use tracing::{debug, error};
 
 use crate::counters::Counters;
 
 #[derive(Default)]
-pub enum InfoElementKind {
+pub enum InfoKind {
     Egui,
     #[default]
     Overlay,
     None,
 }
 
-impl InfoElementKind {
+impl InfoKind {
     fn next(&mut self) {
         *self = match self {
             Self::Overlay => Self::None,
@@ -28,13 +32,15 @@ impl InfoElementKind {
     }
 }
 
-pub struct InfoElement<'s> {
-    kind: InfoElementKind,
+pub struct Info<'s> {
+    kind: InfoKind,
     overlay: Text<'s>,
     custom_info: HashMap<String, String>,
+    logo: Option<Sprite<'s>>,
+    logo_text: Option<Text<'s>>,
 }
 
-impl<'s> InfoElement<'s> {
+impl<'s> Info<'s> {
     pub const DEFAULT_NAME: &'static str = "Info";
 
     pub fn new<const N: usize>(
@@ -55,7 +61,35 @@ impl<'s> InfoElement<'s> {
             kind: Default::default(),
             overlay,
             custom_info: HashMap::new(),
+            logo: None,
+            logo_text: None,
         }
+    }
+
+    pub fn set_logo(&mut self, logo_texture: &'s Texture, logo_text: impl Display) -> SfResult<()> {
+        let mut logo = Sprite::with_texture(logo_texture);
+        let logo_rect = logo.texture_rect();
+        let scale = 1.0 / ((logo_rect.width + logo_rect.height) as f32 / 100.0);
+        debug!("logo rect: {logo_rect:?}");
+        debug!("logo scale: {scale}");
+
+        let mut logo_text = Text::new(
+            &logo_text.to_string(),
+            self.overlay
+                .font()
+                .expect("could not get font for logo_text"),
+            12,
+        );
+
+        logo.set_scale(scale);
+        logo.set_position((400.0, 400.0));
+        logo_text.set_position((660.0, 400.0));
+        logo.set_origin((logo_rect.width as f32, logo_rect.height as f32));
+        logo_text.set_origin((logo_rect.width as f32, logo_rect.height as f32));
+
+        self.logo = Some(logo);
+        self.logo_text = Some(logo_text);
+        Ok(())
     }
 
     pub fn set_custom_info(&mut self, key: impl Display, value: impl Display) {
@@ -83,7 +117,7 @@ impl<'s> InfoElement<'s> {
         self.kind.next()
     }
 
-    pub fn set_kind(&mut self, kind: InfoElementKind) {
+    pub fn set_kind(&mut self, kind: InfoKind) {
         self.kind = kind;
     }
 
@@ -104,15 +138,19 @@ impl<'s> InfoElement<'s> {
         counters: &Counters<N>,
     ) {
         match self.kind {
-            InfoElementKind::None => (),
-            InfoElementKind::Egui => {
+            InfoKind::None => (),
+            InfoKind::Egui => {
                 let di = self.prepare_draw(window, egui_window, counters);
                 egui_window.draw(di, window, None);
             }
-            InfoElementKind::Overlay => {
+            InfoKind::Overlay => {
                 let _ = self.prepare_draw(window, egui_window, counters);
                 window.draw(&self.overlay)
             }
+        }
+        if self.logo.is_some() && self.logo_text.is_some() {
+            window.draw(self.logo.as_ref().unwrap());
+            window.draw(self.logo_text.as_ref().unwrap());
         }
     }
 
