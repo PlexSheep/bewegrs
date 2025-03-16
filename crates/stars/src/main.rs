@@ -35,7 +35,7 @@ const BEHIND_CAMERA: f32 = 60.5;
 const SPREAD: f32 = FAR_PLANE * 40.0;
 
 // Performance configuration
-const FAR_THRESH: f32 = FAR_PLANE / 1.7;
+const FAR_THRESH: f32 = FAR_PLANE / 1.2;
 
 fn main() -> SfResult<()> {
     setup();
@@ -178,7 +178,7 @@ impl Star {
         };
 
         star.rand_pos(width, height);
-        star.rand_distance();
+        star.distance = Star::rand_distance();
         star
     }
 
@@ -193,8 +193,8 @@ impl Star {
     }
 
     #[inline]
-    fn rand_distance(&mut self) {
-        self.distance = rand::random_range(NEAR_PLANE..FAR_PLANE);
+    fn rand_distance() -> f32 {
+        rand::random_range(NEAR_PLANE..FAR_PLANE)
     }
 
     fn rand_pos(&mut self, width: u32, height: u32) {
@@ -218,23 +218,26 @@ impl Star {
         }
     }
 
-    fn update(&mut self, speed: f32) {
+    fn update(&mut self, speed: f32, width: u32, height: u32) {
         // Decrease distance (move closer)
         self.distance -= speed;
-    }
 
-    fn update_lazy(&mut self, width: u32, height: u32) {
-        self.update_lod();
         // If star gets too close, reset it
-        if self.distance < NEAR_PLANE - BEHIND_CAMERA {
+        if self.distance <= -BEHIND_CAMERA {
             self.rand_pos(width, height);
-            self.distance = FAR_PLANE - rand::random_range(0.0..FAR_PLANE / 200.0);
+            self.distance = FAR_PLANE;
+            self.update_lazy(width, height);
         }
         // If star gets too far, reset it
-        if self.distance > FAR_PLANE {
+        else if self.distance >= FAR_PLANE {
             self.rand_pos(width, height);
-            self.distance = -BEHIND_CAMERA + rand::random_range(0.0..FAR_PLANE / 200.0);
+            self.distance = rand::random_range(-BEHIND_CAMERA..0.0);
+            self.update_lazy(width, height);
         }
+    }
+
+    fn update_lazy(&mut self, _width: u32, _height: u32) {
+        self.update_lod();
         // Check visibility
         self.active = self.is_visible();
     }
@@ -497,7 +500,7 @@ impl<'s> ComprehensiveElement<'s> for Stars {
 
         // Update star positions
         for star in self.stars.iter_mut() {
-            star.update(self.speed);
+            star.update(self.speed, self.video.width, self.video.height);
         }
 
         // Sort stars by distance - only when needed
@@ -587,5 +590,5 @@ impl<'s> ComprehensiveElement<'s> for Stars {
 
 #[inline]
 const fn lazy_interval(fps_limit: u64) -> u64 {
-    fps_limit / 15
+    fps_limit / 30
 }
