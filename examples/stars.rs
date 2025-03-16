@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use getopts::Options;
 use sfml::{
-    SfResult,
     cpp::FBox,
     graphics::{
         Color, FloatRect, Font, Image, IntRect, PrimitiveType, RectangleShape, RenderTarget,
@@ -10,13 +9,14 @@ use sfml::{
     },
     system::{Vector2f, Vector2u},
     window::{Event, Key, Style, VideoMode},
+    SfResult,
 };
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 use bewegrs::{
     counters::Counters,
     setup,
-    ui::{ComprehensiveElement, ComprehensiveUi, elements::info::Info},
+    ui::{elements::info::Info, ComprehensiveElement, ComprehensiveUi},
 };
 
 const MAX_FPS: usize = 60;
@@ -272,6 +272,7 @@ struct Stars {
     video: VideoMode,
     speed: f32,
     texture: FBox<Texture>,
+    last_sorted_frame: u64,
 }
 
 impl Stars {
@@ -320,6 +321,7 @@ impl Stars {
             video,
             speed: DEFAULT_SPEED,
             texture,
+            last_sorted_frame: 0,
         })
     }
 
@@ -342,10 +344,6 @@ impl Stars {
             vertex.color = Color::rgba(0, 0, 0, 0); // Fully transparent
         }
 
-        // Sort stars by distance (farthest first for proper overlay)
-        self.stars
-            .sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());
-
         // Update all vertices in the vertices array
         for (i, star) in self.stars.iter().enumerate() {
             star.create_vertices(
@@ -366,15 +364,25 @@ impl Stars {
 }
 
 impl<'s, const N: usize> ComprehensiveElement<'s, N> for Stars {
-    fn update(&mut self, _counters: &Counters<N>, _info: &mut Info<'s>) {
+    fn update(&mut self, counters: &Counters<N>, _info: &mut Info<'s>) {
         // Update star positions
         for star in self.stars.iter_mut() {
             star.update(self.video.width, self.video.height, self.speed);
         }
 
+        // Sort less frequently - only every 10 frames or so
+        let should_resort = counters.frames % 10 == 0 || self.speed > 5.0;
+
+        if should_resort {
+            // Sort stars by distance - only when needed
+            self.stars
+                .sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());
+            self.last_sorted_frame = counters.frames;
+        }
+
         // Update vertex buffer
         if let Err(e) = self.update_vertices() {
-            eprintln!("Error updating vertex buffer: {:?}", e);
+            error!("bad stars update: {e}");
         }
     }
 
