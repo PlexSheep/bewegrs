@@ -1,19 +1,19 @@
 use sfml::{
-    SfResult,
     cpp::FBox,
     graphics::{
         Color, FloatRect, Font, Image, IntRect, PrimitiveType, RectangleShape, RenderTarget,
         RenderWindow, Texture, Transformable, Vertex, VertexBuffer, VertexBufferUsage,
     },
-    system::Vector2f,
+    system::{Vector2f, Vector2u},
     window::{Event, Key, Style, VideoMode},
+    SfResult,
 };
 use tracing::{debug, info};
 
 use bewegrs::{
     counters::Counters,
     setup,
-    ui::{ComprehensiveElement, ComprehensiveUi, elements::info::Info},
+    ui::{elements::info::Info, ComprehensiveElement, ComprehensiveUi},
 };
 
 const MAX_FPS: usize = 60;
@@ -25,6 +25,7 @@ const DEFAULT_SPEED: f32 = 0.8;
 const STAR_RADIUS: f32 = 30.0;
 const FAR_PLANE: f32 = 800.0;
 const NEAR_PLANE: f32 = 5.5;
+const BEHIND_CAMERA: f32 = 60.5;
 const SPREAD: f32 = FAR_PLANE * 40.0;
 
 fn main() -> SfResult<()> {
@@ -144,9 +145,9 @@ impl Star {
         self.distance -= speed;
 
         // If star gets too close, reset it
-        if self.distance <= NEAR_PLANE {
+        if self.distance <= NEAR_PLANE - BEHIND_CAMERA {
             self.rand_pos(width, height);
-            self.rand_distance();
+            self.distance = FAR_PLANE;
         }
         // If star gets too far, reset it
         if self.distance >= FAR_PLANE {
@@ -169,7 +170,14 @@ impl Star {
     }
 
     // Create vertices for this star (a quad made of 4 vertices)
-    fn create_vertices(&self, width: u32, height: u32, vertices: &mut [Vertex], index: usize) {
+    fn create_vertices(
+        &self,
+        width: u32,
+        height: u32,
+        vertices: &mut [Vertex],
+        index: usize,
+        texture_size: Vector2u,
+    ) {
         // Calculate perspective scale factor
         let scale = NEAR_PLANE / self.distance;
 
@@ -189,7 +197,7 @@ impl Star {
 
         // If star is active, create a visible quad
         if self.active {
-            let color = Color::rgb(brightness, brightness, brightness);
+            let color = Color::rgb(brightness.saturating_add(20), brightness, brightness);
 
             // Top-left vertex
             vertices[i].position = Vector2f::new(screen_x - radius, screen_y - radius);
@@ -199,17 +207,18 @@ impl Star {
             // Top-right vertex
             vertices[i + 1].position = Vector2f::new(screen_x + radius, screen_y - radius);
             vertices[i + 1].color = color;
-            vertices[i + 1].tex_coords = Vector2f::new(100.0, 0.0);
+            vertices[i + 1].tex_coords = Vector2f::new(texture_size.x as f32, 0.0);
 
             // Bottom-right vertex
             vertices[i + 2].position = Vector2f::new(screen_x + radius, screen_y + radius);
             vertices[i + 2].color = color;
-            vertices[i + 2].tex_coords = Vector2f::new(100.0, 100.0);
+            vertices[i + 2].tex_coords =
+                Vector2f::new(texture_size.x as f32, texture_size.y as f32);
 
             // Bottom-left vertex
             vertices[i + 3].position = Vector2f::new(screen_x - radius, screen_y + radius);
             vertices[i + 3].color = color;
-            vertices[i + 3].tex_coords = Vector2f::new(0.0, 100.0);
+            vertices[i + 3].tex_coords = Vector2f::new(0.0, texture_size.y as f32);
         }
         // If star is not active, create an invisible quad
         else {
@@ -236,10 +245,13 @@ struct Stars {
 
 impl Stars {
     pub fn new(video: VideoMode, amount: usize) -> SfResult<Self> {
-        // Load star texture
-        let star_image = Image::from_memory(include_bytes!("../resources/logo.png"))?;
-        let mut texture = Texture::from_image(&star_image, IntRect::default())?;
-        texture.set_smooth(true); // Enable smoothing for better scaling
+        let texture = Self::create_star_texture()?;
+
+        debug!(
+            "Star texture dimensions: {}x{}",
+            texture.size().x,
+            texture.size().y
+        );
 
         // Create stars
         let mut stars: Vec<Star> = Vec::with_capacity(amount);
@@ -264,7 +276,7 @@ impl Stars {
 
         // Initialize vertex data
         for (i, star) in stars.iter().enumerate() {
-            star.create_vertices(video.width, video.height, &mut vertices, i);
+            star.create_vertices(video.width, video.height, &mut vertices, i, texture.size());
         }
 
         // Update the vertex buffer with initial data
@@ -280,6 +292,16 @@ impl Stars {
         })
     }
 
+    // Creates a procedural star texture
+    fn create_star_texture() -> SfResult<FBox<Texture>> {
+        // Load star texture
+        let star_image = Image::from_memory(include_bytes!("../resources/star.png"))?;
+        let mut texture = Texture::from_image(&star_image, IntRect::default())?;
+        texture.set_smooth(true); // Enable smoothing for better scaling
+
+        Ok(texture)
+    }
+
     fn update_vertices(&mut self) -> SfResult<()> {
         // Clear all vertices by setting them to transparent
         for vertex in &mut self.vertices {
@@ -292,7 +314,13 @@ impl Stars {
 
         // Update all vertices in the vertices array
         for (i, star) in self.stars.iter().enumerate() {
-            star.create_vertices(self.video.width, self.video.height, &mut self.vertices, i);
+            star.create_vertices(
+                self.video.width,
+                self.video.height,
+                &mut self.vertices,
+                i,
+                self.texture.size(),
+            );
         }
 
         // Update the vertex buffer with the new vertex data
