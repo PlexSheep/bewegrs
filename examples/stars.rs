@@ -5,6 +5,7 @@ use std::{
 
 use getopts::Options;
 use sfml::{
+    SfResult,
     cpp::FBox,
     graphics::{
         Color, FloatRect, Font, Image, IntRect, PrimitiveType, RectangleShape, RenderTarget,
@@ -12,14 +13,13 @@ use sfml::{
     },
     system::{Vector2f, Vector2u},
     window::{Event, Key, Style, VideoMode},
-    SfResult,
 };
 use tracing::{debug, info};
 
 use bewegrs::{
     counters::Counters,
     setup,
-    ui::{elements::info::Info, ComprehensiveElement, ComprehensiveUi},
+    ui::{ComprehensiveElement, ComprehensiveUi, elements::info::Info},
 };
 
 const MAX_FPS: usize = 60;
