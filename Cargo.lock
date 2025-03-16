@@ -780,6 +780,7 @@ dependencies = [
  "criterion",
  "getopts",
  "rand",
+ "rayon",
 ]
 
 [[package]]

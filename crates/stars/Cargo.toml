@@ -12,6 +12,7 @@ repository = { workspace = true }
 bewegrs = { version = "0.1.0", path = "../.." }
 getopts.workspace = true
 rand.workspace = true
+rayon.workspace = true
 
 [dev-dependencies]
 criterion = { workspace = true }

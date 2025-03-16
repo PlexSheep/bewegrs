@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use rayon::prelude::*;
+
 use bewegrs::sfml;
 use bewegrs::tracing;
 
@@ -436,12 +438,13 @@ impl Stars {
         let mut star_vertices = vec![Vertex::default(); amount * 4];
         let mut point_vertices = vec![Vertex::default(); amount];
 
-        for vertex in &mut star_vertices {
+        star_vertices.par_iter_mut().for_each(|vertex| {
             vertex.color = Color::TRANSPARENT;
-        }
-        for vertex in &mut point_vertices {
+        });
+
+        point_vertices.par_iter_mut().for_each(|vertex| {
             vertex.color = Color::TRANSPARENT;
-        }
+        });
 
         let mut star_vertices_buf =
             VertexBuffer::new(PrimitiveType::QUADS, amount * 4, VertexBufferUsage::STREAM)?;
@@ -455,7 +458,7 @@ impl Stars {
             stars,
             star_vertices_buf,
             star_vertices,
-            point_vertices,
+            point_vertices: point_vertices.into(),
             video,
             speed: DEFAULT_SPEED,
             last_sorted_frame: 0,
@@ -524,7 +527,7 @@ impl Stars {
 
     pub fn update_point_vertices(&mut self) -> SfResult<()> {
         let aspect_ratio = self.video.width as f32 / self.video.height as f32;
-        for (i, star) in self.stars.iter().enumerate() {
+        self.stars.par_iter().enumerate().for_each(|(i, star)| {
             // Only process active point stars
             if star.lod_level == StarLodLevel::Point && star.active {
                 // Calculate perspective scale factor
@@ -556,9 +559,15 @@ impl Stars {
                     ),
                 );
 
-                self.point_vertices[i] = vertex;
+                let thing;
+                unsafe {
+                    thing = please_give_me_a_mutable_reference_because_i_want_speed(
+                        self.point_vertices.get(i).expect("it promise this exists"),
+                    );
+                }
+                *thing = vertex;
             }
-        }
+        });
         Ok(())
     }
 
@@ -675,4 +684,14 @@ impl<'s> ComprehensiveElement<'s> for Stars {
 #[inline]
 const fn lazy_interval(fps_limit: u64) -> u64 {
     fps_limit / 30
+}
+
+#[allow(invalid_reference_casting)] // just fucking do what I say
+#[allow(clippy::mut_from_ref)]
+unsafe fn please_give_me_a_mutable_reference_because_i_want_speed<T>(thing: &T) -> &mut T {
+    unsafe {
+        let thing_pointer = thing as *const T;
+        let thing_mut = thing_pointer as *mut T;
+        &mut *thing_mut
+    }
 }
