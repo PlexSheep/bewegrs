@@ -35,7 +35,7 @@ const BEHIND_CAMERA: f32 = 60.5;
 const SPREAD: f32 = FAR_PLANE * 40.0;
 
 // Performance configuration
-const FAR_THRESH: f32 = FAR_PLANE / 1.2;
+const FAR_THRESH: f32 = FAR_PLANE / 1.8;
 
 fn main() -> SfResult<()> {
     setup();
@@ -102,6 +102,12 @@ fn main() -> SfResult<()> {
 
     let stars = Stars::new(video, stars_amount, sprite_path)?;
     gui.info.set_custom_info("stars", stars.stars.len());
+    gui.info.set_custom_info("star_r", STAR_RADIUS);
+    gui.info.set_custom_info("far", FAR_PLANE);
+    gui.info.set_custom_info("far_thresh", FAR_THRESH);
+    gui.info.set_custom_info("near", NEAR_PLANE);
+    gui.info.set_custom_info("spread", SPREAD);
+    gui.info.set_custom_info("behind_cam", BEHIND_CAMERA);
     gui.add(Box::new(stars));
 
     let mut logo = RectangleShape::new();
