@@ -467,11 +467,10 @@ impl Stars {
             .par_chunks(chunk_size)
             .enumerate()
             .for_each(|(chunk_index, chunk)| {
+                // SAFETY: We're creating a mutable reference to the vector, but using
+                // it only for specific star's elements based on index
+                let vertices_ref = unsafe { please_mutable_ref_vec(&self.star_vertices) };
                 for (i, star) in chunk.iter().enumerate() {
-                    // SAFETY: We're creating a mutable reference to the vector, but using
-                    // it only for specific star's elements based on index
-                    let vertices_ref = unsafe { please_mutable_ref_vec(&self.star_vertices) };
-
                     let mut ctx = StarRenderCtx {
                         width: self.video.width,
                         height: self.video.height,
@@ -493,37 +492,45 @@ impl Stars {
 
     fn update_point_vertices(&mut self) -> SfResult<()> {
         let aspect_ratio = self.video.width as f32 / self.video.height as f32;
-        for (i, star) in self.stars.iter().enumerate() {
-            if star.lod_level == StarLodLevel::Point && star.active {
-                let scale = NEAR_PLANE / star.distance;
+        let chunk_size = self.star_chunks();
+        self.stars
+            .par_chunks(chunk_size)
+            .enumerate()
+            .for_each(|(chunk_idx, chunk)| {
+                let vertices_ref = unsafe { please_mutable_ref_vec(&self.point_vertices) };
+                for (i, star) in chunk.iter().enumerate() {
+                    if star.lod_level == StarLodLevel::Point && star.active {
+                        let scale = NEAR_PLANE / star.distance;
 
-                // Calculate projected screen position
-                let screen_x =
-                    star.position.x * scale * aspect_ratio + self.video.width as f32 / 2.0;
-                let screen_y = star.position.y * scale + self.video.height as f32 / 2.0;
+                        // Calculate projected screen position
+                        let screen_x =
+                            star.position.x * scale * aspect_ratio + self.video.width as f32 / 2.0;
+                        let screen_y = star.position.y * scale + self.video.height as f32 / 2.0;
 
-                let depth_ratio = (star.distance - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
-                let brightness = ((1.0 - depth_ratio) * 255.0) as u8;
+                        let depth_ratio = (star.distance - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
+                        let brightness = ((1.0 - depth_ratio) * 255.0) as u8;
 
-                let darkness = 255 - brightness;
-                let adjusted_color = Color::rgb(
-                    self.texture_color.r.saturating_sub(darkness),
-                    self.texture_color.g.saturating_sub(darkness),
-                    self.texture_color.b.saturating_sub(darkness),
-                );
+                        let darkness = 255 - brightness;
+                        let adjusted_color = Color::rgb(
+                            self.texture_color.r.saturating_sub(darkness),
+                            self.texture_color.g.saturating_sub(darkness),
+                            self.texture_color.b.saturating_sub(darkness),
+                        );
 
-                let vertex = Vertex::new(
-                    Vector2f::new(screen_x, screen_y),
-                    adjusted_color,
-                    Vector2f::new(
-                        self.texture_size.x as f32 / 2.0,
-                        self.texture_size.y as f32 / 2.0,
-                    ),
-                );
+                        let vertex = Vertex::new(
+                            Vector2f::new(screen_x, screen_y),
+                            adjusted_color,
+                            Vector2f::new(
+                                self.texture_size.x as f32 / 2.0,
+                                self.texture_size.y as f32 / 2.0,
+                            ),
+                        );
 
-                self.point_vertices[i] = vertex;
-            }
-        }
+                        vertices_ref[chunk_idx * i] = vertex;
+                    }
+                }
+            });
+
         Ok(())
     }
 
