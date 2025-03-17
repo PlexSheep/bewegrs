@@ -172,12 +172,14 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug, Default)]
 enum StarLodLevel {
+    #[default]
     Detail,
     Point,
 }
 
+#[derive(Default, Clone, Copy)]
 pub struct Star {
     /// World-space position (centered around 0,0)
     position: Vector2f,
@@ -221,17 +223,18 @@ struct StarRenderDetailCtx<'render> {
 }
 
 impl Star {
-    fn new(width: u32, height: u32) -> Self {
-        let mut star = Star {
+    fn new() -> Self {
+        Star {
             position: Vector2f::new(0.0, 0.0),
             distance: 0.0,
             active: true,
             lod_level: StarLodLevel::Detail,
-        };
+        }
+    }
 
-        star.rand_pos(width, height);
-        star.distance = Star::rand_distance();
-        star
+    fn randomize(&mut self, width: u32, height: u32) {
+        self.rand_pos(width, height);
+        self.distance = Star::rand_distance();
     }
 
     // Update the star's LOD level based on distance
@@ -392,10 +395,11 @@ impl Stars {
             texture.size().y
         );
 
-        let mut stars: Vec<Star> = Vec::with_capacity(amount);
-        (0..amount).for_each(|_| {
-            stars.push(Star::new(video.width, video.height));
-        });
+        let new_star = Star::new();
+        let mut stars: Vec<Star> = vec![new_star; amount];
+        stars
+            .par_iter_mut()
+            .for_each(|star| star.randomize(video.width, video.height));
 
         let mut star_vertices = vec![Vertex::default(); amount * 4];
         let mut point_vertices = vec![Vertex::default(); amount];
