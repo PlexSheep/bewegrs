@@ -278,23 +278,21 @@ impl Star {
         if self.distance <= -BEHIND_CAMERA {
             self.rand_pos(width, height);
             self.distance = FAR_PLANE;
-            self.update_lazy(width, height);
         }
         // If star gets too far, reset it
         else if self.distance >= FAR_PLANE {
             self.rand_pos(width, height);
             self.distance = -BEHIND_CAMERA;
-            self.update_lazy(width, height);
         }
 
         // NOTE: setting these to constant values is important, because otherwise, we need to sort
         // the star array again. Otherwise, far stars would get rendered over near stars
+
+        self.active = self.is_visible();
+        self.update_lod();
     }
 
-    fn update_lazy(&mut self, _width: u32, _height: u32) {
-        self.update_lod();
-        self.active = self.is_visible();
-    }
+    fn update_lazy(&mut self, _width: u32, _height: u32) {}
 
     #[inline]
     fn is_visible(&self) -> bool {
@@ -557,14 +555,6 @@ impl<'s> ComprehensiveElement<'s> for Stars {
                 star.update(self.speed, self.video.width, self.video.height);
             }
         });
-
-        if counters.frames % 2 == 0 {
-            self.stars.par_chunks_mut(chunk_size).for_each(|chunk| {
-                for star in chunk {
-                    star.update_lazy(self.video.width, self.video.height);
-                }
-            });
-        }
 
         if let Err(e) = self.update_vertices() {
             error!("could not update stars vertices: {e}");
