@@ -36,9 +36,6 @@ const NEAR_PLANE: f32 = 5.5;
 const BEHIND_CAMERA: f32 = 60.5;
 const SPREAD: f32 = FAR_PLANE * 40.0;
 
-// Performance configuration
-const POINT_THRESH: f32 = FAR_PLANE / 1.5;
-
 // export this so that we can use benchmarks
 pub fn stars(args: Vec<String>) -> SfResult<()> {
     setup();
@@ -110,7 +107,6 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
     gui.info.set_custom_info("stars", stars.stars.len());
     gui.info.set_custom_info("star_r", STAR_RADIUS);
     gui.info.set_custom_info("far", FAR_PLANE);
-    gui.info.set_custom_info("point_thresh", POINT_THRESH);
     gui.info.set_custom_info("near", NEAR_PLANE);
     gui.info.set_custom_info("spread", SPREAD);
     gui.info.set_custom_info("behind_cam", BEHIND_CAMERA);
@@ -170,28 +166,18 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug, Default)]
-enum StarLodLevel {
-    #[default]
-    Detail,
-    Point,
-}
-
 #[derive(Default, Clone, Copy)]
 pub struct Star {
     /// World-space position (centered around 0,0)
     position: Vector2f,
     distance: f32,
     active: bool,
-    lod_level: StarLodLevel,
 }
 
 pub struct Stars {
     stars: Vec<Star>,
     star_vertices_buf: FBox<VertexBuffer>,
-    point_vertices_buf: FBox<VertexBuffer>,
     star_vertices: Vec<Vertex>,
-    point_vertices: Vec<Vertex>,
     video: VideoMode,
     speed: f32,
     texture: FBox<Texture>,
@@ -210,23 +196,12 @@ struct StarRenderCtx<'render> {
     aspect_ratio: f32,
 }
 
-struct StarRenderDetailCtx<'render> {
-    vertices: &'render mut [Vertex],
-    texture_size: &'render Vector2u,
-    color: &'render Color,
-    i: usize,
-    screen_x: f32,
-    screen_y: f32,
-    radius: f32,
-}
-
 impl Star {
     fn new() -> Self {
         Star {
             position: Vector2f::new(0.0, 0.0),
             distance: 0.0,
             active: true,
-            lod_level: StarLodLevel::Detail,
         }
     }
 
@@ -289,8 +264,7 @@ impl Star {
 
     // Create vertices for this star (a quad made of 4 vertices)
     fn update_vertices(&self, ctx: &mut StarRenderCtx) {
-        // Skip point stars - they'll be handled separately
-        if self.lod_level == StarLodLevel::Point || (!self.active) {
+        if !self.active {
             // Make vertices transparent for skipped stars
             let i = ctx.index * 4;
             for j in 0..4 {
@@ -324,47 +298,22 @@ impl Star {
             ctx.color.b.saturating_sub(darkness),
         );
 
-        let mut ctx_detail = StarRenderDetailCtx {
-            vertices: ctx.vertices,
-            texture_size: ctx.texture_size,
-            color: &adjusted_color,
-            i,
-            screen_x,
-            screen_y,
-            radius,
-        };
-
-        // PERF: interestingly, the only difference in these functions is how the texture
-        // coords are set. In detailed, they are set to the dimensions of the texture_size. In
-        // far, all are set to the center of the texture_size.
-        // This makes a difference of a few percent points at profiling
-        match self.lod_level {
-            StarLodLevel::Detail => Self::create_vertecies_detailed(&mut ctx_detail),
-            StarLodLevel::Point => unreachable!(),
-        }
-    }
-
-    fn create_vertecies_detailed(ctx: &mut StarRenderDetailCtx<'_>) {
         let tex_x: f32 = ctx.texture_size.x as f32;
         let tex_y: f32 = ctx.texture_size.y as f32;
 
         for j in 0..4 {
-            ctx.vertices[ctx.i + j].color = *ctx.color;
+            ctx.vertices[i + j].color = adjusted_color;
         }
 
-        ctx.vertices[ctx.i].position =
-            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y - ctx.radius);
-        ctx.vertices[ctx.i + 1].position =
-            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y - ctx.radius);
-        ctx.vertices[ctx.i + 2].position =
-            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y + ctx.radius);
-        ctx.vertices[ctx.i + 3].position =
-            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y + ctx.radius);
+        ctx.vertices[i].position = Vector2f::new(screen_x - radius, screen_y - radius);
+        ctx.vertices[i + 1].position = Vector2f::new(screen_x + radius, screen_y - radius);
+        ctx.vertices[i + 2].position = Vector2f::new(screen_x + radius, screen_y + radius);
+        ctx.vertices[i + 3].position = Vector2f::new(screen_x - radius, screen_y + radius);
 
-        ctx.vertices[ctx.i].tex_coords = Vector2f::new(0.0, 0.0);
-        ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(tex_x, 0.0);
-        ctx.vertices[ctx.i + 2].tex_coords = Vector2f::new(tex_x, tex_y);
-        ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, tex_y);
+        ctx.vertices[i].tex_coords = Vector2f::new(0.0, 0.0);
+        ctx.vertices[i + 1].tex_coords = Vector2f::new(tex_x, 0.0);
+        ctx.vertices[i + 2].tex_coords = Vector2f::new(tex_x, tex_y);
+        ctx.vertices[i + 3].tex_coords = Vector2f::new(0.0, tex_y);
     }
 }
 
@@ -396,21 +345,17 @@ impl Stars {
 
         let star_vertices_buf =
             VertexBuffer::new(PrimitiveType::QUADS, amount * 4, VertexBufferUsage::STREAM)?;
-        let point_vertices_buf =
-            VertexBuffer::new(PrimitiveType::POINTS, amount, VertexBufferUsage::STREAM)?;
 
         let mut stars = Stars {
             stars,
             star_vertices_buf,
             star_vertices,
-            point_vertices,
             video,
             speed: DEFAULT_SPEED,
             last_sorted_frame: 0,
             texture_size: texture.size(),
             texture,
             texture_color,
-            point_vertices_buf,
         };
 
         stars.sort(0);
@@ -442,7 +387,6 @@ impl Stars {
     }
 
     fn update_vertices(&mut self) -> SfResult<()> {
-        self.update_point_vertices()?;
         let aspect_ratio = self.video.width as f32 / self.video.height as f32;
 
         let chunk_size = self.star_chunks();
@@ -469,51 +413,6 @@ impl Stars {
             });
 
         self.star_vertices_buf.update(&self.star_vertices, 0)?;
-        self.point_vertices_buf.update(&self.point_vertices, 0)?;
-        Ok(())
-    }
-
-    fn update_point_vertices(&mut self) -> SfResult<()> {
-        let aspect_ratio = self.video.width as f32 / self.video.height as f32;
-        let chunk_size = self.star_chunks();
-        self.stars
-            .par_chunks(chunk_size)
-            .enumerate()
-            .for_each(|(chunk_idx, chunk)| {
-                let vertices_ref = unsafe { please_mutable_ref_vec(&self.point_vertices) };
-                for (i, star) in chunk.iter().enumerate() {
-                    if star.lod_level == StarLodLevel::Point && star.active {
-                        let scale = NEAR_PLANE / star.distance;
-
-                        // Calculate projected screen position
-                        let screen_x =
-                            star.position.x * scale * aspect_ratio + self.video.width as f32 / 2.0;
-                        let screen_y = star.position.y * scale + self.video.height as f32 / 2.0;
-
-                        let depth_ratio = (star.distance - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
-                        let brightness = ((1.0 - depth_ratio) * 255.0) as u8;
-
-                        let darkness = 255 - brightness;
-                        let adjusted_color = Color::rgb(
-                            self.texture_color.r.saturating_sub(darkness),
-                            self.texture_color.g.saturating_sub(darkness),
-                            self.texture_color.b.saturating_sub(darkness),
-                        );
-
-                        let vertex = Vertex::new(
-                            Vector2f::new(screen_x, screen_y),
-                            adjusted_color,
-                            Vector2f::new(
-                                self.texture_size.x as f32 / 2.0,
-                                self.texture_size.y as f32 / 2.0,
-                            ),
-                        );
-
-                        vertices_ref[chunk_idx * i] = vertex;
-                    }
-                }
-            });
-
         Ok(())
     }
 
@@ -558,7 +457,6 @@ impl<'s> ComprehensiveElement<'s> for Stars {
         let mut states = sfml::graphics::RenderStates::DEFAULT;
         states.texture = Some(&*self.texture);
 
-        sfml_w.draw(&*self.point_vertices_buf);
         sfml_w.draw_with_renderstates(&*self.star_vertices_buf, &states);
     }
 
@@ -567,20 +465,6 @@ impl<'s> ComprehensiveElement<'s> for Stars {
     }
 
     fn update_slow(&mut self, _counters: &Counter, info: &mut Info<'s>) {
-        info.set_custom_info(
-            "LOD_Detailed",
-            self.stars
-                .iter()
-                .filter(|s| s.lod_level == StarLodLevel::Detail)
-                .count(),
-        );
-        info.set_custom_info(
-            "LOD_Point",
-            self.stars
-                .iter()
-                .filter(|s| s.lod_level == StarLodLevel::Point)
-                .count(),
-        );
         info.set_custom_info("last_sort", self.last_sorted_frame);
     }
 
