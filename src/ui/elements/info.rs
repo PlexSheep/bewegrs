@@ -159,9 +159,7 @@ impl<'s> Info<'s> {
         }
     }
 
-    pub fn update_slow(&mut self, counters: &Counter) {
-        self.overlay.set_string(&counters.text);
-    }
+    pub fn update_slow(&mut self, _counters: &Counter) {}
 
     pub fn update(&mut self, _counters: &Counter) {}
 
