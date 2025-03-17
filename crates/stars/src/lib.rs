@@ -539,8 +539,10 @@ impl<'s> ComprehensiveElement<'s> for Stars {
         }
 
         // Sort stars by distance - only when needed
-        for star in self.stars.iter_mut() {
-            star.update_lazy(self.video.width, self.video.height);
+        if counters.frames % 2 == 0 {
+            for star in self.stars.iter_mut() {
+                star.update_lazy(self.video.width, self.video.height);
+            }
         }
 
         // Update vertex buffer
