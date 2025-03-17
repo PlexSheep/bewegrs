@@ -116,6 +116,8 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
     gui.info.set_custom_info("near", NEAR_PLANE);
     gui.info.set_custom_info("spread", SPREAD);
     gui.info.set_custom_info("behind_cam", BEHIND_CAMERA);
+    gui.info
+        .set_custom_info("threadool_threads", rayon::current_num_threads());
     gui.info.set_custom_info(
         "resolution",
         format_args!(
