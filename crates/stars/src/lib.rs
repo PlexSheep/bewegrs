@@ -450,21 +450,38 @@ impl Stars {
         Ok((texture, center_color))
     }
 
+    fn star_chunks(&self) -> usize {
+        self.stars.len().div_ceil(rayon::current_num_threads())
+    }
+
     fn update_vertices(&mut self) -> SfResult<()> {
         self.update_point_vertices()?;
         let aspect_ratio = self.video.width as f32 / self.video.height as f32;
-        for (i, star) in self.stars.iter().enumerate() {
-            let mut ctx = StarRenderCtx {
-                width: self.video.width,
-                height: self.video.height,
-                vertices: &mut self.star_vertices,
-                index: i,
-                texture_size: &self.texture_size,
-                color: &self.texture_color,
-                aspect_ratio,
-            };
-            star.update_vertices(&mut ctx);
-        }
+
+        let chunk_size = self.star_chunks();
+        self.stars
+            .par_chunks(chunk_size)
+            .enumerate()
+            .for_each(|(chunk_index, chunk)| {
+                for (i, star) in chunk.iter().enumerate() {
+                    // SAFETY: We're creating a mutable reference to the vector, but using
+                    // it only for specific star's elements based on index
+                    let vertices_ref = unsafe { please_mutable_ref_vec(&self.star_vertices) };
+
+                    let mut ctx = StarRenderCtx {
+                        width: self.video.width,
+                        height: self.video.height,
+                        vertices: vertices_ref,
+                        index: chunk_index * chunk_size + i,
+                        texture_size: &self.texture_size,
+                        color: &self.texture_color,
+                        aspect_ratio,
+                    };
+
+                    star.update_vertices(&mut ctx);
+                }
+            });
+
         self.star_vertices_buf.update(&self.star_vertices, 0)?;
         self.point_vertices_buf.update(&self.point_vertices, 0)?;
         Ok(())
@@ -520,7 +537,7 @@ impl Stars {
 }
 
 impl<'s> ComprehensiveElement<'s> for Stars {
-    fn update(&mut self, counters: &Counter, info: &mut Info<'s>) {
+    fn update(&mut self, counters: &Counter, _info: &mut Info<'s>) {
         if self.speed == 0.0 {
             return;
         }
@@ -608,13 +625,18 @@ impl<'s> ComprehensiveElement<'s> for Stars {
     }
 }
 
-#[allow(invalid_reference_casting)] // just fucking do what I say
+#[allow(invalid_reference_casting)]
+#[allow(mutable_transmutes)]
 #[allow(clippy::mut_from_ref)]
 #[inline]
-unsafe fn please_give_me_a_mutable_ref<T>(thing: &T) -> &mut T {
-    unsafe {
-        let thing_pointer = thing as *const T;
-        let thing_mut = thing_pointer as *mut T;
-        &mut *thing_mut
-    }
+unsafe fn please_mutable_ref<T>(thing: &T) -> &mut T {
+    unsafe { std::mem::transmute(thing) }
+}
+
+#[allow(invalid_reference_casting)]
+#[allow(clippy::mut_from_ref)]
+#[inline]
+// seems redundant but is important for sized
+unsafe fn please_mutable_ref_vec<T: Sized>(vec: &Vec<T>) -> &mut Vec<T> {
+    unsafe { please_mutable_ref(vec) }
 }
