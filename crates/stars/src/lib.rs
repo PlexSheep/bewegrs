@@ -37,7 +37,6 @@ const BEHIND_CAMERA: f32 = 60.5;
 const SPREAD: f32 = FAR_PLANE * 40.0;
 
 // Performance configuration
-const FAR_THRESH: f32 = FAR_PLANE / 3.5;
 const POINT_THRESH: f32 = FAR_PLANE / 1.5;
 
 // export this so that we can use benchmarks
@@ -111,7 +110,6 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
     gui.info.set_custom_info("stars", stars.stars.len());
     gui.info.set_custom_info("star_r", STAR_RADIUS);
     gui.info.set_custom_info("far", FAR_PLANE);
-    gui.info.set_custom_info("far_thresh", FAR_THRESH);
     gui.info.set_custom_info("point_thresh", POINT_THRESH);
     gui.info.set_custom_info("near", NEAR_PLANE);
     gui.info.set_custom_info("spread", SPREAD);
