@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use bewegrs::tracing::trace;
 use rayon::prelude::*;
 
 use bewegrs::sfml;
@@ -409,7 +410,7 @@ pub struct Stars {
     stars: Vec<Star>,
     star_vertices_buf: FBox<VertexBuffer>,
     point_vertices_buf: FBox<VertexBuffer>,
-    star_vertices: Vec<Vertex>,
+    star_vertices: Vec<Vec<Vertex>>,
     point_vertices: Vec<Vertex>,
     video: VideoMode,
     speed: f32,
@@ -435,22 +436,26 @@ impl Stars {
             stars.push(Star::new(video.width, video.height));
         }
 
-        let mut star_vertices = vec![Vertex::default(); amount * 4];
+        let num_threads = rayon::current_num_threads();
+        let chunk_size = amount.div_ceil(num_threads);
+        let mut star_vertices = vec![vec![Vertex::default(); chunk_size * 4]; num_threads];
         let mut point_vertices = vec![Vertex::default(); amount];
 
-        star_vertices.par_iter_mut().for_each(|vertex| {
-            vertex.color = Color::TRANSPARENT;
+        star_vertices.par_iter_mut().for_each(|chunk| {
+            for vertex in chunk.iter_mut() {
+                vertex.color = Color::TRANSPARENT;
+            }
         });
+
         point_vertices.par_iter_mut().for_each(|vertex| {
             vertex.color = Color::TRANSPARENT;
         });
 
-        let mut star_vertices_buf =
+        let star_vertices_buf =
             VertexBuffer::new(PrimitiveType::QUADS, amount * 4, VertexBufferUsage::STREAM)?;
         let mut point_vertices_buf =
             VertexBuffer::new(PrimitiveType::POINTS, amount, VertexBufferUsage::STREAM)?;
 
-        star_vertices_buf.update(&star_vertices, 0)?;
         point_vertices_buf.update(&point_vertices, 0)?;
 
         let mut stars = Stars {
@@ -498,30 +503,41 @@ impl Stars {
         Ok((texture, center_color))
     }
 
-    pub fn update_vertices(&mut self) -> SfResult<()> {
-        self.update_point_vertices()?;
-        let aspect_ratio = self.video.width as f32 / self.video.height as f32;
-        self.stars.par_iter().enumerate().for_each(|(i, star)| {
-            star.create_vertices(
-                self.video.width,
-                self.video.height,
-                #[allow(clippy::needless_borrow)] // not needless
-                &mut unsafe {
-                    please_give_me_a_mutable_reference_because_i_want_speed(&self.star_vertices)
-                },
-                i,
-                &self.texture_size,
-                &self.texture_color,
-                aspect_ratio,
-            );
-        });
+    fn star_chunk_size(&self) -> usize {
+        let num_threads = rayon::current_num_threads();
+        let chunk_size = self.stars.len().div_ceil(num_threads);
+        chunk_size
+    }
 
-        // Update the vertex buffer with the new vertex data
-        // This updates all vertices, including the "invisible" ones
-        // PERF: this takes a lot of time, but since vertex buffers are stored in the gpu memory,
-        // it saves us time later when drawing.
-        // I have tried the performance with just vertex arrays (Vec<Vertex>) and it is worse.
-        self.star_vertices_buf.update(&self.star_vertices, 0)?;
+    pub fn update_vertices(&mut self) -> SfResult<()> {
+        // First handle point vertices separately (sequential or parallelized properly)
+        self.update_point_vertices()?;
+
+        let aspect_ratio = self.video.width as f32 / self.video.height as f32;
+        let chunk_size = self.star_chunk_size();
+
+        // Create temporary vertex buffers for each chunk
+        self.star_vertices
+            .par_iter_mut()
+            .zip(self.stars.par_chunks(chunk_size))
+            .for_each(|(chunk_vertices, chunk_stars)| {
+                for (local_idx, star) in chunk_stars.iter().enumerate() {
+                    star.create_vertices(
+                        self.video.width,
+                        self.video.height,
+                        chunk_vertices,
+                        local_idx,
+                        &self.texture_size,
+                        &self.texture_color,
+                        aspect_ratio,
+                    );
+                }
+            });
+
+        for (i, p) in self.star_vertices.iter().enumerate() {
+            self.star_vertices_buf.update(p, (i * chunk_size) as u32)?;
+        }
+
         self.point_vertices_buf.update(&self.point_vertices, 0)?;
 
         Ok(())
