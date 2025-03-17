@@ -25,7 +25,3 @@ harness = false
 
 [[bin]]
 name = "stars"
-
-[[bin]]
-name = "starsafe"
-path = "src/safe.rs"

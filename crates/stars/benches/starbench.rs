@@ -1,7 +1,8 @@
+use bewegrs::counter::Counter;
 use bewegrs::sfml::graphics::Font;
+use bewegrs::sfml::window::VideoMode;
 use bewegrs::ui::ComprehensiveElement;
 use bewegrs::ui::elements::info::Info;
-use bewegrs::{counters::Counters, sfml::window::VideoMode};
 use criterion::{Criterion, criterion_group, criterion_main};
 
 use stars::Stars;
@@ -17,7 +18,7 @@ fn bench_stars_update(c: &mut Criterion) {
     let mut stars = Stars::new(video, 500_000, None).unwrap();
     stars.sort(0);
 
-    let c = Counters::start(60).unwrap();
+    let c = Counter::start(60).unwrap();
     let mut font = Font::new().unwrap();
     font.load_from_memory_static(include_bytes!("../../../resources/sansation.ttf"))
         .unwrap();

@@ -19,7 +19,7 @@ use sfml::{
 use tracing::{debug, error, info};
 
 use bewegrs::{
-    counters::Counters,
+    counter::Counter,
     setup,
     ui::{ComprehensiveElement, ComprehensiveUi, elements::info::Info},
 };
@@ -91,8 +91,6 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
         Style::DEFAULT | Style::FULLSCREEN,
         &Default::default(),
     )?;
-    let mut counter = Counters::start(fps_limit)?;
-    window.set_framerate_limit(fps_limit as u32);
 
     let mut font = Font::new()?;
     font.load_from_memory_static(include_bytes!("../../../resources/sansation.ttf"))?;
@@ -101,7 +99,7 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
     let mut texture = Texture::from_image(profile_image, IntRect::default())?;
     texture.set_smooth(true);
 
-    let mut gui = ComprehensiveUi::build(&window, &font, &video, &counter)?;
+    let mut gui = ComprehensiveUi::build(&mut window, &font, &video, fps_limit)?;
     gui.set_no_cursor(&mut window, true);
 
     if !matches.opt_present("hide-logo") {
@@ -144,23 +142,22 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
             }
         }
 
-        counter.frame_start();
+        gui.frame_start();
 
-        gui.update(&counter);
-        if counter.frames % counter.fps_limit == 1 {
-            gui.update_slow(&counter)
+        gui.update();
+        if gui.counter.frames % gui.counter.fps_limit == 1 {
+            gui.update_slow();
         }
 
         window.clear(BG);
-        gui.draw_with(&mut window, &counter);
+        gui.draw_with(&mut window);
 
         window.draw(&logo);
 
-        counter.frame_prepare_display();
-        window.display();
+        gui.display(&mut window);
 
         if let Some(secs) = exit_after {
-            if counter.seconds >= secs as f32 {
+            if gui.counter.seconds >= secs as f32 {
                 break 'mainloop;
             }
         }
@@ -174,31 +171,31 @@ fn print_usage(program: &str, opts: Options) {
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
-pub enum StarLodLevel {
+enum StarLodLevel {
     Detail,
     Point,
 }
 
-pub struct StarRenderCtx<'render> {
-    pub vertices: &'render mut [Vertex],
-    pub texture_size: &'render Vector2u,
-    pub color: &'render Color,
-    pub i: usize,
-    pub screen_x: f32,
-    pub screen_y: f32,
-    pub radius: f32,
+struct StarRenderCtx<'render> {
+    vertices: &'render mut [Vertex],
+    texture_size: &'render Vector2u,
+    color: &'render Color,
+    i: usize,
+    screen_x: f32,
+    screen_y: f32,
+    radius: f32,
 }
 
 // Simple star data without the SFML object
 pub struct Star {
-    pub position: Vector2f, // World-space position (centered around 0,0)
-    pub distance: f32,      // z-coordinate
-    pub active: bool,       // Whether star is active/visible
-    pub lod_level: StarLodLevel,
+    position: Vector2f, // World-space position (centered around 0,0)
+    distance: f32,      // z-coordinate
+    active: bool,       // Whether star is active/visible
+    lod_level: StarLodLevel,
 }
 
 impl Star {
-    pub fn new(width: u32, height: u32) -> Self {
+    fn new(width: u32, height: u32) -> Self {
         let mut star = Star {
             position: Vector2f::new(0.0, 0.0),
             distance: 0.0,
@@ -213,7 +210,7 @@ impl Star {
 
     // Update the star's LOD level based on distance
     #[inline]
-    pub fn update_lod(&mut self) {
+    fn update_lod(&mut self) {
         self.lod_level = if self.distance < POINT_THRESH {
             StarLodLevel::Detail
         } else {
@@ -226,7 +223,7 @@ impl Star {
         rand::random_range(NEAR_PLANE..FAR_PLANE)
     }
 
-    pub fn rand_pos(&mut self, width: u32, height: u32) {
+    fn rand_pos(&mut self, width: u32, height: u32) {
         // Generate position centered around origin in world space
         // Scale by FAR_PLANE to give stars enough space
         let aspect_ratio = width as f32 / height as f32;
@@ -247,7 +244,7 @@ impl Star {
         }
     }
 
-    pub fn update(&mut self, speed: f32, width: u32, height: u32) {
+    fn update(&mut self, speed: f32, width: u32, height: u32) {
         // Decrease distance (move closer)
         self.distance -= speed;
 
@@ -255,31 +252,32 @@ impl Star {
         if self.distance <= -BEHIND_CAMERA {
             self.rand_pos(width, height);
             self.distance = FAR_PLANE;
-            self.distance = rand::random_range((POINT_THRESH)..FAR_PLANE);
+            // self.distance = rand::random_range((POINT_THRESH)..FAR_PLANE);
             self.update_lazy(width, height);
         }
         // If star gets too far, reset it
         else if self.distance >= FAR_PLANE {
             self.rand_pos(width, height);
-            self.distance = rand::random_range(-BEHIND_CAMERA..0.0);
+            // self.distance = rand::random_range(-BEHIND_CAMERA..0.0);
+            self.distance = -BEHIND_CAMERA;
             self.update_lazy(width, height);
         }
     }
 
-    pub fn update_lazy(&mut self, _width: u32, _height: u32) {
+    fn update_lazy(&mut self, _width: u32, _height: u32) {
         self.update_lod();
         // Check visibility
         self.active = self.is_visible();
     }
 
     #[inline]
-    pub fn is_visible(&self) -> bool {
+    fn is_visible(&self) -> bool {
         // Check if star is big enough to see
         NEAR_PLANE / self.distance > 0.001
     }
 
     // Create vertices for this star (a quad made of 4 vertices)
-    pub fn update_vertices(
+    fn update_vertices(
         &self,
         width: u32,
         height: u32,
@@ -290,7 +288,7 @@ impl Star {
         aspect_ratio: f32,
     ) {
         // Skip point stars - they'll be handled separately
-        if self.lod_level == StarLodLevel::Point || !self.active {
+        if self.lod_level == StarLodLevel::Point || (!self.active) {
             // Make vertices transparent for skipped stars
             let i = index * 4;
             for j in 0..4 {
@@ -344,7 +342,7 @@ impl Star {
         }
     }
 
-    pub fn create_vertecies_detailed(ctx: &mut StarRenderCtx<'_>) {
+    fn create_vertecies_detailed(ctx: &mut StarRenderCtx<'_>) {
         let tex_x: f32 = ctx.texture_size.x as f32;
         let tex_y: f32 = ctx.texture_size.y as f32;
 
@@ -361,18 +359,10 @@ impl Star {
         ctx.vertices[ctx.i + 3].position =
             Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y + ctx.radius);
 
-        if true {
-            ctx.vertices[ctx.i].tex_coords = Vector2f::new(0.0, 0.0);
-            ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(tex_x, 0.0);
-            ctx.vertices[ctx.i + 2].tex_coords = Vector2f::new(tex_x, tex_y);
-            ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, tex_y);
-        } else {
-            let tex_center = Vector2f::new(tex_x, tex_y);
-            ctx.vertices[ctx.i].tex_coords = tex_center;
-            ctx.vertices[ctx.i + 1].tex_coords = tex_center;
-            ctx.vertices[ctx.i + 2].tex_coords = tex_center;
-            ctx.vertices[ctx.i + 3].tex_coords = tex_center;
-        }
+        ctx.vertices[ctx.i].tex_coords = Vector2f::new(0.0, 0.0);
+        ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(tex_x, 0.0);
+        ctx.vertices[ctx.i + 2].tex_coords = Vector2f::new(tex_x, tex_y);
+        ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, tex_y);
     }
 }
 
@@ -464,13 +454,8 @@ impl Stars {
         Ok((texture, center_color))
     }
 
-    pub fn sort(&mut self, frame: u64) {
-        self.stars
-            .sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());
-        self.last_sorted_frame = frame;
-    }
-
     fn update_vertices(&mut self) -> SfResult<()> {
+        self.update_point_vertices()?;
         let aspect_ratio = self.video.width as f32 / self.video.height as f32;
         for (i, star) in self.stars.iter().enumerate() {
             star.update_vertices(
@@ -483,18 +468,83 @@ impl Stars {
                 aspect_ratio,
             );
         }
+        self.star_vertices_buf.update(&self.star_vertices, 0)?;
+        self.point_vertices_buf.update(&self.point_vertices, 0)?;
         Ok(())
+    }
+
+    fn update_point_vertices(&mut self) -> SfResult<()> {
+        let aspect_ratio = self.video.width as f32 / self.video.height as f32;
+        for (i, star) in self.stars.iter().enumerate() {
+            // Only process active point stars
+            if star.lod_level == StarLodLevel::Point && star.active {
+                // Calculate perspective scale factor
+                let scale = NEAR_PLANE / star.distance;
+
+                // Calculate projected screen position
+                let screen_x =
+                    star.position.x * scale * aspect_ratio + self.video.width as f32 / 2.0;
+                let screen_y = star.position.y * scale + self.video.height as f32 / 2.0;
+
+                // Depth ratio for color (farther stars are dimmer)
+                let depth_ratio = (star.distance - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
+                let brightness = ((1.0 - depth_ratio) * 255.0) as u8;
+
+                let darkness = 255 - brightness;
+                let adjusted_color = Color::rgb(
+                    self.texture_color.r.saturating_sub(darkness),
+                    self.texture_color.g.saturating_sub(darkness),
+                    self.texture_color.b.saturating_sub(darkness),
+                );
+
+                // Create a point vertex
+                let vertex = Vertex::new(
+                    Vector2f::new(screen_x, screen_y),
+                    adjusted_color,
+                    Vector2f::new(
+                        self.texture_size.x as f32 / 2.0,
+                        self.texture_size.y as f32 / 2.0,
+                    ),
+                );
+
+                self.point_vertices[i] = vertex;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn sort(&mut self, frame: u64) {
+        self.stars
+            .sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());
+        self.last_sorted_frame = frame;
+    }
+
+    fn adjust_speed(&mut self, add_speed: f32, modifier: bool, fps_limit: u64) {
+        let bounds = fps_limit as f32 / 3.0;
+        self.speed += add_speed * if modifier { 10.0 } else { 1.0 };
+        self.speed = self.speed.clamp(-bounds, bounds);
     }
 }
 
 impl<'s> ComprehensiveElement<'s> for Stars {
-    fn update(&mut self, counters: &Counters, info: &mut Info<'s>) {
+    fn update(&mut self, counters: &Counter, info: &mut Info<'s>) {
         if self.speed == 0.0 {
             return;
         }
 
+        // Update star positions
+        for star in self.stars.iter_mut() {
+            star.update(self.speed, self.video.width, self.video.height);
+        }
+
+        // Sort stars by distance - only when needed
+        for star in self.stars.iter_mut() {
+            star.update_lazy(self.video.width, self.video.height);
+        }
+
+        // Update vertex buffer
         if let Err(e) = self.update_vertices() {
-            error!("could not update vertices: {e}");
+            error!("bad stars update: {e}");
         }
     }
 
@@ -503,7 +553,7 @@ impl<'s> ComprehensiveElement<'s> for Stars {
         &mut self,
         sfml_w: &mut FBox<RenderWindow>,
         _egui_w: &mut bewegrs::egui_sfml::SfEgui,
-        _counters: &Counters,
+        _counters: &Counter,
         _info: &mut Info<'s>,
     ) {
         // Create render states with our texture
@@ -518,7 +568,8 @@ impl<'s> ComprehensiveElement<'s> for Stars {
         0
     }
 
-    fn update_slow(&mut self, _counters: &Counters, info: &mut Info<'s>) {
+    fn update_slow(&mut self, counters: &Counter, info: &mut Info<'s>) {
+        self.sort(counters.frames);
         info.set_custom_info(
             "LOD_Detailed",
             self.stars
@@ -533,16 +584,17 @@ impl<'s> ComprehensiveElement<'s> for Stars {
                 .filter(|s| s.lod_level == StarLodLevel::Point)
                 .count(),
         );
+        info.set_custom_info("last_sort", self.last_sorted_frame);
     }
 
-    fn process_event(&mut self, event: &Event, info: &mut Info<'s>) {
+    fn process_event(&mut self, event: &Event, counters: &Counter, info: &mut Info<'s>) {
         match event {
             Event::KeyPressed {
                 code: Key::W,
                 shift,
                 ..
             } => {
-                self.speed += 0.1 * if *shift { 10.0 } else { 1.0 };
+                self.adjust_speed(0.1, *shift, counters.fps_limit);
                 info.set_custom_info("speed", format_args!("{:.03}", self.speed));
             }
             Event::KeyPressed {
@@ -550,7 +602,7 @@ impl<'s> ComprehensiveElement<'s> for Stars {
                 shift,
                 ..
             } => {
-                self.speed -= 0.1 * if *shift { 10.0 } else { 1.0 };
+                self.adjust_speed(-0.1, *shift, counters.fps_limit);
                 info.set_custom_info("speed", format_args!("{:.03}", self.speed));
             }
             Event::KeyPressed {
