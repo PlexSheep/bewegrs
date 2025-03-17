@@ -390,7 +390,6 @@ impl Stars {
             texture.size().y
         );
 
-        // Create stars
         let mut stars: Vec<Star> = Vec::with_capacity(amount);
         for _ in 0..amount {
             stars.push(Star::new(video.width, video.height));
@@ -431,9 +430,7 @@ impl Stars {
         Ok(stars)
     }
 
-    // Creates a procedural star texture
     fn create_star_texture(sprite_path: Option<PathBuf>) -> SfResult<(FBox<Texture>, Color)> {
-        // Load star texture
         let star_image = match sprite_path {
             None => Image::from_memory(include_bytes!("../../../resources/star.png"))?,
             Some(p) => Image::from_file(p.to_str().expect("could not convert path to str"))?,
@@ -446,7 +443,7 @@ impl Stars {
             .expect("could not get center color of star sprite");
 
         let mut texture = Texture::from_image(&star_image, IntRect::default())?;
-        texture.set_smooth(true); // Enable smoothing for better scaling
+        texture.set_smooth(true);
 
         Ok((texture, center_color))
     }
@@ -474,9 +471,7 @@ impl Stars {
     fn update_point_vertices(&mut self) -> SfResult<()> {
         let aspect_ratio = self.video.width as f32 / self.video.height as f32;
         for (i, star) in self.stars.iter().enumerate() {
-            // Only process active point stars
             if star.lod_level == StarLodLevel::Point && star.active {
-                // Calculate perspective scale factor
                 let scale = NEAR_PLANE / star.distance;
 
                 // Calculate projected screen position
@@ -484,7 +479,6 @@ impl Stars {
                     star.position.x * scale * aspect_ratio + self.video.width as f32 / 2.0;
                 let screen_y = star.position.y * scale + self.video.height as f32 / 2.0;
 
-                // Depth ratio for color (farther stars are dimmer)
                 let depth_ratio = (star.distance - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
                 let brightness = ((1.0 - depth_ratio) * 255.0) as u8;
 
@@ -495,7 +489,6 @@ impl Stars {
                     self.texture_color.b.saturating_sub(darkness),
                 );
 
-                // Create a point vertex
                 let vertex = Vertex::new(
                     Vector2f::new(screen_x, screen_y),
                     adjusted_color,
@@ -530,25 +523,21 @@ impl<'s> ComprehensiveElement<'s> for Stars {
             return;
         }
 
-        // Update star positions
         for star in self.stars.iter_mut() {
             star.update(self.speed, self.video.width, self.video.height);
         }
 
-        // Sort stars by distance - only when needed
         if counters.frames % 2 == 0 {
             for star in self.stars.iter_mut() {
                 star.update_lazy(self.video.width, self.video.height);
             }
         }
 
-        // Update vertex buffer
         if let Err(e) = self.update_vertices() {
-            error!("bad stars update: {e}");
+            error!("could not update stars vertices: {e}");
         }
     }
 
-    #[allow(clippy::field_reassign_with_default)] // wtf? I'm not doing that
     fn draw_with(
         &mut self,
         sfml_w: &mut FBox<RenderWindow>,
@@ -556,8 +545,7 @@ impl<'s> ComprehensiveElement<'s> for Stars {
         _counters: &Counter,
         _info: &mut Info<'s>,
     ) {
-        // Create render states with our texture
-        let mut states = sfml::graphics::RenderStates::default();
+        let mut states = sfml::graphics::RenderStates::DEFAULT;
         states.texture = Some(&*self.texture);
 
         sfml_w.draw(&*self.point_vertices_buf);
