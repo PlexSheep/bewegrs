@@ -561,8 +561,10 @@ impl<'s> ComprehensiveElement<'s> for Stars {
         });
 
         if counters.frames % 2 == 0 {
-            self.stars.iter_mut().for_each(|star| {
-                star.update_lazy(self.video.width, self.video.height);
+            self.stars.par_chunks_mut(chunk_size).for_each(|chunk| {
+                for star in chunk {
+                    star.update_lazy(self.video.width, self.video.height);
+                }
             });
         }
 
