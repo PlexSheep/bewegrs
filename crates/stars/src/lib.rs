@@ -521,7 +521,7 @@ impl Stars {
     }
 
     fn adjust_speed(&mut self, add_speed: f32, modifier: bool, fps_limit: u64) {
-        let bounds = fps_limit as f32 / 3.0;
+        let bounds = fps_limit as f32;
         self.speed += add_speed * if modifier { 10.0 } else { 1.0 };
         self.speed = self.speed.clamp(-bounds, bounds);
     }
