@@ -7,6 +7,21 @@ use criterion::{Criterion, criterion_group, criterion_main};
 
 use stars::Stars;
 
+fn bench_stars_new(c: &mut Criterion) {
+    let mut group = c.benchmark_group("stars_new");
+
+    // Create test data
+    let width = 1920;
+    let height = 1080;
+    let video = VideoMode::new(width, height, 24);
+
+    group.bench_function("stars_new", |b| {
+        b.iter(|| Stars::new(video, 100_000, None));
+    });
+
+    group.finish();
+}
+
 fn bench_stars_update(c: &mut Criterion) {
     let mut group = c.benchmark_group("stars_update");
 
@@ -31,5 +46,5 @@ fn bench_stars_update(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_stars_update,);
+criterion_group!(benches, bench_stars_new, bench_stars_update,);
 criterion_main!(benches);
