@@ -384,7 +384,7 @@ impl Stars {
     pub fn new(video: VideoMode, amount: usize, sprite_path: Option<PathBuf>) -> SfResult<Self> {
         let (texture, texture_color) = Self::create_star_texture(sprite_path)?;
 
-        debug!(
+        info!(
             "Star texture dimensions: {}x{}",
             texture.size().x,
             texture.size().y
@@ -406,13 +406,10 @@ impl Stars {
             vertex.color = Color::TRANSPARENT;
         });
 
-        let mut star_vertices_buf =
+        let star_vertices_buf =
             VertexBuffer::new(PrimitiveType::QUADS, amount * 4, VertexBufferUsage::STREAM)?;
-        let mut point_vertices_buf =
+        let point_vertices_buf =
             VertexBuffer::new(PrimitiveType::POINTS, amount, VertexBufferUsage::STREAM)?;
-
-        star_vertices_buf.update(&star_vertices, 0)?;
-        point_vertices_buf.update(&point_vertices, 0)?;
 
         let mut stars = Stars {
             stars,
