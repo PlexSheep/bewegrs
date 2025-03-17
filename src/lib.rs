@@ -5,7 +5,7 @@ pub use egui_sfml;
 pub use sfml;
 pub use tracing;
 
-pub mod counters;
+pub mod counter;
 pub mod shapes;
 pub mod ui;
 

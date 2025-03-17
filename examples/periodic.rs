@@ -9,7 +9,6 @@ use sfml::{
 use tracing::info;
 
 use bewegrs::{
-    counters::Counters,
     setup,
     shapes::{TriangleShape, hue_time},
     ui::ComprehensiveUi,
@@ -28,13 +27,11 @@ fn main() -> SfResult<()> {
         Style::DEFAULT | Style::FULLSCREEN,
         &Default::default(),
     )?;
-    let mut counter = Counters::start(MAX_FPS)?;
-    window.set_framerate_limit(MAX_FPS as u32);
 
     let mut font = Font::new()?;
     font.load_from_memory_static(include_bytes!("../resources/sansation.ttf"))?;
 
-    let mut gui = ComprehensiveUi::build(&window, &font, &video, &counter)?;
+    let mut gui = ComprehensiveUi::build(&mut window, &font, &video, MAX_FPS)?;
 
     let mut triangle = CustomShape::new(Box::new(TriangleShape));
     triangle.set_position((400., 300.));
@@ -63,19 +60,19 @@ fn main() -> SfResult<()> {
             }
         }
 
-        counter.frame_start();
+        gui.frame_start();
 
-        gui.update(&counter);
-        if counter.frames % MAX_FPS == 1 {
-            gui.update_slow(&counter)
+        gui.update();
+        if gui.counter.frames % MAX_FPS == 1 {
+            gui.update_slow()
         }
 
-        let scale = counter.seconds.cos().abs();
+        let scale = gui.counter.seconds.cos().abs();
 
-        triangle.set_rotation(counter.seconds.sin().abs() * 360.0);
+        triangle.set_rotation(gui.counter.seconds.sin().abs() * 360.0);
         triangle.set_scale(scale);
-        triangle.set_fill_color(hue_time(counter.seconds));
-        triangle.set_outline_color(hue_time(counter.seconds / 2.0));
+        triangle.set_fill_color(hue_time(gui.counter.seconds));
+        triangle.set_outline_color(hue_time(gui.counter.seconds / 2.0));
 
         circle.set_scale(scale);
         circle.set_outline_color(Color::RED);
@@ -85,10 +82,9 @@ fn main() -> SfResult<()> {
         window.draw(&backdrop);
         window.draw(&circle);
         window.draw(&triangle);
-        gui.draw_with(&mut window, &counter);
+        gui.draw_with(&mut window);
 
-        counter.frame_prepare_display();
-        window.display();
+        gui.display(&mut window);
     }
     Ok(())
 }

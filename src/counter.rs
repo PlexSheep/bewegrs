@@ -9,7 +9,7 @@ type RingBuffer<T> = ringbuffer::AllocRingBuffer<T>;
 
 /// lazy fields get updated every [Self::fps_limit] frames
 #[derive(Debug)]
-pub struct Counters {
+pub struct Counter {
     /// frame counter
     pub frames: u64,
     /// frame counter lazy
@@ -27,12 +27,12 @@ pub struct Counters {
     pub text: String,
 }
 
-impl Counters {
+impl Counter {
     // pub const MS_PER_FRAME: f32 = 1000.0 / MAX_FPS as f32;
     // pub const MAX_FPS_U64: u64 = MAX_FPS as u64;
 
     pub fn start(fps_limit: u64) -> SfResult<Self> {
-        let mut c = Counters {
+        let mut c = Counter {
             clock: Clock::start()?,
             l_frames: 0,
             frames: 0,

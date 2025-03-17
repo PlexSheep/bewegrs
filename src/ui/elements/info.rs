@@ -11,7 +11,7 @@ use sfml::system::Vector2f;
 use sfml::window::{Key, VideoMode};
 use tracing::{debug, error};
 
-use crate::counters::Counters;
+use crate::counter::Counter;
 
 #[derive(Default)]
 pub enum InfoKind {
@@ -43,7 +43,7 @@ pub struct Info<'s> {
 impl<'s> Info<'s> {
     pub const DEFAULT_NAME: &'static str = "Info";
 
-    pub fn new(font: &'s FBox<Font>, video: &'s VideoMode, counters: &Counters) -> Self {
+    pub fn new(font: &'s FBox<Font>, video: &'s VideoMode, counters: &Counter) -> Self {
         let mut overlay = Text::new(&counters.text, font, 17);
         debug!("info bounds: {:?}", overlay.global_bounds());
         overlay.set_fill_color(Color::rgb(200, 200, 200));
@@ -105,7 +105,7 @@ impl<'s> Info<'s> {
         &mut self,
         window: &mut FBox<RenderWindow>,
         egui_window: &mut SfEgui,
-        counters: &Counters,
+        counters: &Counter,
     ) -> DrawInput {
         self.overlay.set_string(&self.get_text(counters));
         egui_window
@@ -126,7 +126,7 @@ impl<'s> Info<'s> {
         self.kind = kind;
     }
 
-    fn get_text(&self, counters: &Counters) -> String {
+    fn get_text(&self, counters: &Counter) -> String {
         let mut buf: String = format!("{}\n", counters.text);
         for (key, value) in &self.custom_info {
             if let Err(e) = writeln!(buf, "{key}: {value}") {
@@ -140,7 +140,7 @@ impl<'s> Info<'s> {
         &mut self,
         window: &mut FBox<RenderWindow>,
         egui_window: &mut SfEgui,
-        counters: &Counters,
+        counters: &Counter,
     ) {
         match self.kind {
             InfoKind::None => (),
@@ -159,11 +159,11 @@ impl<'s> Info<'s> {
         }
     }
 
-    pub fn update_slow(&mut self, counters: &Counters) {
+    pub fn update_slow(&mut self, counters: &Counter) {
         self.overlay.set_string(&counters.text);
     }
 
-    pub fn update(&mut self, _counters: &Counters) {}
+    pub fn update(&mut self, _counters: &Counter) {}
 
     pub fn process_event(&mut self, event: &sfml::window::Event) {
         if let sfml::window::Event::KeyPressed { code: Key::F10, .. } = event {
