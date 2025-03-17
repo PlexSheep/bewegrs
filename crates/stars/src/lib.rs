@@ -452,16 +452,11 @@ impl Stars {
             Some(p) => Image::from_file(p.to_str().expect("could not convert path to str"))?,
         };
 
-        // Debug: Check the center pixel
         let center_x = star_image.size().x / 2;
         let center_y = star_image.size().y / 2;
         let center_color = star_image
             .pixel_at(center_x, center_y)
             .expect("could not get center color of star sprite");
-        info!(
-            "Center pixel of star texture: R:{}, G:{}, B:{}, A:{}",
-            center_color.r, center_color.g, center_color.b, center_color.a
-        );
 
         let mut texture = Texture::from_image(&star_image, IntRect::default())?;
         texture.set_smooth(true); // Enable smoothing for better scaling
@@ -469,85 +464,14 @@ impl Stars {
         Ok((texture, center_color))
     }
 
-    pub fn update_vertices(&mut self) -> SfResult<()> {
-        self.update_point_vertices()?;
-        let aspect_ratio = self.video.width as f32 / self.video.height as f32;
-        self.stars.par_iter().enumerate().for_each(|(i, star)| {
-            star.create_vertices(
-                self.video.width,
-                self.video.height,
-                #[allow(clippy::needless_borrow)] // not needless
-                &mut unsafe {
-                    please_give_me_a_mutable_reference_because_i_want_speed(&self.star_vertices)
-                },
-                i,
-                &self.texture_size,
-                &self.texture_color,
-                aspect_ratio,
-            );
-        });
-
-        // Update the vertex buffer with the new vertex data
-        // This updates all vertices, including the "invisible" ones
-        // PERF: this takes a lot of time, but since vertex buffers are stored in the gpu memory,
-        // it saves us time later when drawing.
-        // I have tried the performance with just vertex arrays (Vec<Vertex>) and it is worse.
-        self.star_vertices_buf.update(&self.star_vertices, 0)?;
-        self.point_vertices_buf.update(&self.point_vertices, 0)?;
-
-        Ok(())
-    }
-
-    pub fn update_point_vertices(&mut self) -> SfResult<()> {
-        let aspect_ratio = self.video.width as f32 / self.video.height as f32;
-        self.stars.par_iter().enumerate().for_each(|(i, star)| {
-            // Only process active point stars
-            if star.lod_level == StarLodLevel::Point && star.active {
-                // Calculate perspective scale factor
-                let scale = NEAR_PLANE / star.distance;
-
-                // Calculate projected screen position
-                let screen_x =
-                    star.position.x * scale * aspect_ratio + self.video.width as f32 / 2.0;
-                let screen_y = star.position.y * scale + self.video.height as f32 / 2.0;
-
-                // Depth ratio for color (farther stars are dimmer)
-                let depth_ratio = (star.distance - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
-                let brightness = ((1.0 - depth_ratio) * 255.0) as u8;
-
-                let darkness = 255 - brightness;
-                let adjusted_color = Color::rgb(
-                    self.texture_color.r.saturating_sub(darkness),
-                    self.texture_color.g.saturating_sub(darkness),
-                    self.texture_color.b.saturating_sub(darkness),
-                );
-
-                // Create a point vertex
-                let vertex = Vertex::new(
-                    Vector2f::new(screen_x, screen_y),
-                    adjusted_color,
-                    Vector2f::new(
-                        self.texture_size.x as f32 / 2.0,
-                        self.texture_size.y as f32 / 2.0,
-                    ),
-                );
-
-                let thing;
-                unsafe {
-                    thing = please_give_me_a_mutable_reference_because_i_want_speed(
-                        self.point_vertices.get(i).expect("it promise this exists"),
-                    );
-                }
-                *thing = vertex;
-            }
-        });
-        Ok(())
-    }
-
     pub fn sort(&mut self, frame: u64) {
         self.stars
             .sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());
         self.last_sorted_frame = frame;
+    }
+
+    fn update_vertices(&self) -> SfResult<()> {
+        todo!()
     }
 }
 
@@ -557,27 +481,8 @@ impl<'s> ComprehensiveElement<'s> for Stars {
             return;
         }
 
-        // Update star positions
-        let chunk_size = self.stars.len() / rayon::max_num_threads();
-        self.stars.par_chunks_mut(chunk_size).for_each(|chunk| {
-            for star in chunk {
-                star.update(self.speed, self.video.width, self.video.height);
-            }
-        });
-
-        // Sort stars by distance - only when needed
-        if counters.frames % lazy_interval(counters.fps_limit) == 0 {
-            for star in self.stars.iter_mut() {
-                star.update_lazy(self.video.width, self.video.height);
-            }
-
-            self.sort(counters.frames);
-            info.set_custom_info("last_sort", self.last_sorted_frame);
-        }
-
-        // Update vertex buffer
         if let Err(e) = self.update_vertices() {
-            error!("bad stars update: {e}");
+            error!("could not update vertices: {e}");
         }
     }
 
@@ -592,16 +497,15 @@ impl<'s> ComprehensiveElement<'s> for Stars {
         // Create render states with our texture
         let mut states = sfml::graphics::RenderStates::default();
         states.texture = Some(&*self.texture);
-        // Draw all stars with a single draw call
-        sfml_w.draw(&*self.point_vertices_buf);
-        sfml_w.draw_with_renderstates(&*self.star_vertices_buf, &states);
+
+        todo!()
     }
 
     fn z_level(&self) -> u16 {
         0
     }
 
-    fn update_slow(&mut self, counters: &Counters, info: &mut Info<'s>) {
+    fn update_slow(&mut self, _counters: &Counters, info: &mut Info<'s>) {
         info.set_custom_info(
             "LOD_Detailed",
             self.stars
@@ -616,7 +520,6 @@ impl<'s> ComprehensiveElement<'s> for Stars {
                 .filter(|s| s.lod_level == StarLodLevel::Point)
                 .count(),
         );
-        info.set_custom_info("lazy_interval", lazy_interval(counters.fps_limit));
     }
 
     fn process_event(&mut self, event: &Event, info: &mut Info<'s>) {
@@ -648,11 +551,6 @@ impl<'s> ComprehensiveElement<'s> for Stars {
             _ => (),
         }
     }
-}
-
-#[inline]
-fn lazy_interval(fps_limit: u64) -> u64 {
-    2
 }
 
 #[allow(invalid_reference_casting)] // just fucking do what I say
