@@ -279,7 +279,7 @@ impl Star {
     }
 
     // Create vertices for this star (a quad made of 4 vertices)
-    pub fn create_vertices(
+    pub fn update_vertices(
         &self,
         width: u32,
         height: u32,
@@ -470,8 +470,20 @@ impl Stars {
         self.last_sorted_frame = frame;
     }
 
-    fn update_vertices(&self) -> SfResult<()> {
-        todo!()
+    fn update_vertices(&mut self) -> SfResult<()> {
+        let aspect_ratio = self.video.width as f32 / self.video.height as f32;
+        for (i, star) in self.stars.iter().enumerate() {
+            star.update_vertices(
+                self.video.width,
+                self.video.height,
+                &mut self.star_vertices,
+                i,
+                &self.texture_size,
+                &self.texture_color,
+                aspect_ratio,
+            );
+        }
+        Ok(())
     }
 }
 
@@ -498,7 +510,8 @@ impl<'s> ComprehensiveElement<'s> for Stars {
         let mut states = sfml::graphics::RenderStates::default();
         states.texture = Some(&*self.texture);
 
-        todo!()
+        sfml_w.draw(&*self.point_vertices_buf);
+        sfml_w.draw_with_renderstates(&*self.star_vertices_buf, &states);
     }
 
     fn z_level(&self) -> u16 {
@@ -556,7 +569,7 @@ impl<'s> ComprehensiveElement<'s> for Stars {
 #[allow(invalid_reference_casting)] // just fucking do what I say
 #[allow(clippy::mut_from_ref)]
 #[inline]
-unsafe fn please_give_me_a_mutable_reference_because_i_want_speed<T>(thing: &T) -> &mut T {
+unsafe fn please_give_me_a_mutable_ref<T>(thing: &T) -> &mut T {
     unsafe {
         let thing_pointer = thing as *const T;
         let thing_mut = thing_pointer as *mut T;
