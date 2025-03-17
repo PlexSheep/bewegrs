@@ -5,7 +5,7 @@ use egui_sfml::{DrawInput, SfEgui};
 use sfml::SfResult;
 use sfml::cpp::FBox;
 use sfml::graphics::{
-    Color, Font, RenderTarget, RenderWindow, Shape, Sprite, Text, Texture, Transformable,
+    Color, Font, RenderTarget, RenderWindow, Sprite, Text, Texture, Transformable,
 };
 use sfml::system::Vector2f;
 use sfml::window::{Key, VideoMode};
@@ -169,7 +169,7 @@ impl<'s> Info<'s> {
         }
     }
     pub fn z_level(&self) -> u16 {
-        super::super::UI_LEVEL
+        super::super::UI_Z_LEVEL
     }
 
     pub fn video(&self) -> &VideoMode {

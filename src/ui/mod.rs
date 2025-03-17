@@ -8,13 +8,16 @@ use crate::counter::Counter;
 
 use self::elements::info::Info;
 
-pub const UI_LEVEL: u16 = 20000;
+pub const UI_Z_LEVEL: u16 = 20000;
+pub const DEFAULT_Z_LEVEL: u16 = 1000;
 
 pub mod elements;
 pub mod nativeui;
 
 pub trait ComprehensiveElement<'s>: 's {
-    fn z_level(&self) -> u16;
+    fn z_level(&self) -> u16 {
+        DEFAULT_Z_LEVEL
+    }
 
     fn draw_with(
         &mut self,
