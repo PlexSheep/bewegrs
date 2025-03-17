@@ -251,6 +251,7 @@ impl Star {
         if self.distance <= -BEHIND_CAMERA {
             self.rand_pos(width, height);
             self.distance = FAR_PLANE;
+            self.distance = rand::random_range((POINT_THRESH)..FAR_PLANE);
             self.update_lazy(width, height);
         }
         // If star gets too far, reset it
