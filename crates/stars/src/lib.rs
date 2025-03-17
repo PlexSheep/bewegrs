@@ -169,7 +169,6 @@ fn print_usage(program: &str, opts: Options) {
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 pub enum StarLodLevel {
     Detail,
-    Far,
     Point,
 }
 
@@ -209,11 +208,7 @@ impl Star {
     #[inline]
     pub fn update_lod(&mut self) {
         self.lod_level = if self.distance < POINT_THRESH {
-            if self.distance < FAR_THRESH {
-                StarLodLevel::Detail
-            } else {
-                StarLodLevel::Far
-            }
+            StarLodLevel::Detail
         } else {
             StarLodLevel::Point
         };
@@ -338,7 +333,6 @@ impl Star {
             // This makes a difference of a few percent points at profiling
             match self.lod_level {
                 StarLodLevel::Detail => Self::create_vertecies_detailed(&mut ctx),
-                StarLodLevel::Far => Self::create_vertecies_far(&mut ctx),
                 StarLodLevel::Point => unreachable!(),
             }
         }
@@ -373,35 +367,18 @@ impl Star {
         ctx.vertices[ctx.i + 3].position =
             Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y + ctx.radius);
 
-        ctx.vertices[ctx.i].tex_coords = Vector2f::new(0.0, 0.0);
-        ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(tex_x, 0.0);
-        ctx.vertices[ctx.i + 2].tex_coords = Vector2f::new(tex_x, tex_y);
-        ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, tex_y);
-    }
-
-    pub fn create_vertecies_far(ctx: &mut StarRenderCtx<'_>) {
-        let tex_x: f32 = ctx.texture_size.x as f32 / 2.0;
-        let tex_y: f32 = ctx.texture_size.y as f32 / 2.0;
-        let tex_center = Vector2f::new(tex_x, tex_y);
-
-        for j in 0..4 {
-            ctx.vertices[ctx.i + j].color = *ctx.color;
+        if true {
+            ctx.vertices[ctx.i].tex_coords = Vector2f::new(0.0, 0.0);
+            ctx.vertices[ctx.i + 1].tex_coords = Vector2f::new(tex_x, 0.0);
+            ctx.vertices[ctx.i + 2].tex_coords = Vector2f::new(tex_x, tex_y);
+            ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, tex_y);
+        } else {
+            let tex_center = Vector2f::new(tex_x, tex_y);
+            ctx.vertices[ctx.i].tex_coords = tex_center;
+            ctx.vertices[ctx.i + 1].tex_coords = tex_center;
+            ctx.vertices[ctx.i + 2].tex_coords = tex_center;
+            ctx.vertices[ctx.i + 3].tex_coords = tex_center;
         }
-
-        ctx.vertices[ctx.i].position =
-            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y - ctx.radius);
-        ctx.vertices[ctx.i + 1].position =
-            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y - ctx.radius);
-        ctx.vertices[ctx.i + 2].position =
-            Vector2f::new(ctx.screen_x + ctx.radius, ctx.screen_y + ctx.radius);
-        ctx.vertices[ctx.i + 3].position =
-            Vector2f::new(ctx.screen_x - ctx.radius, ctx.screen_y + ctx.radius);
-
-        // Use a fixed texture coordinate that's known to be non-transparent
-        ctx.vertices[ctx.i].tex_coords = tex_center;
-        ctx.vertices[ctx.i + 1].tex_coords = tex_center;
-        ctx.vertices[ctx.i + 2].tex_coords = tex_center;
-        ctx.vertices[ctx.i + 3].tex_coords = tex_center;
     }
 }
 
@@ -636,13 +613,6 @@ impl<'s> ComprehensiveElement<'s> for Stars {
             self.stars
                 .iter()
                 .filter(|s| s.lod_level == StarLodLevel::Detail)
-                .count(),
-        );
-        info.set_custom_info(
-            "LOD_Far",
-            self.stars
-                .iter()
-                .filter(|s| s.lod_level == StarLodLevel::Far)
                 .count(),
         );
         info.set_custom_info(
