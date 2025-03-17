@@ -340,7 +340,7 @@ impl Star {
             vertices: ctx.vertices,
             texture_size: ctx.texture_size,
             color: &adjusted_color,
-            i: ctx.index,
+            i,
             screen_x,
             screen_y,
             radius,
