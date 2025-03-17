@@ -289,7 +289,7 @@ impl Star {
         aspect_ratio: f32,
     ) {
         // Skip point stars - they'll be handled separately
-        if self.lod_level == StarLodLevel::Point {
+        if self.lod_level == StarLodLevel::Point || !self.active {
             // Make vertices transparent for skipped stars
             let i = index * 4;
             for j in 0..4 {
@@ -302,58 +302,44 @@ impl Star {
         let i = index * 4;
 
         // If star is active, create a visible quad
-        if self.active {
-            // Calculate perspective scale factor
-            let scale = NEAR_PLANE / self.distance;
+        // Calculate perspective scale factor
+        let scale = NEAR_PLANE / self.distance;
 
-            // Calculate projected screen position
-            let screen_x = self.position.x * scale * aspect_ratio + width as f32 / 2.0;
-            let screen_y = self.position.y * scale + height as f32 / 2.0;
+        // Calculate projected screen position
+        let screen_x = self.position.x * scale * aspect_ratio + width as f32 / 2.0;
+        let screen_y = self.position.y * scale + height as f32 / 2.0;
 
-            // Depth ratio for color (farther stars are dimmer)
-            let depth_ratio = (self.distance - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
-            let brightness = ((1.0 - depth_ratio) * 255.0) as u8;
+        // Depth ratio for color (farther stars are dimmer)
+        let depth_ratio = (self.distance - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
+        let brightness = ((1.0 - depth_ratio) * 255.0) as u8;
 
-            // Calculate radius based on distance
-            let radius = STAR_RADIUS * scale;
+        // Calculate radius based on distance
+        let radius = STAR_RADIUS * scale;
 
-            let darkness = 255 - brightness;
-            let adjusted_color = Color::rgb(
-                color.r.saturating_sub(darkness),
-                color.g.saturating_sub(darkness),
-                color.b.saturating_sub(darkness),
-            );
+        let darkness = 255 - brightness;
+        let adjusted_color = Color::rgb(
+            color.r.saturating_sub(darkness),
+            color.g.saturating_sub(darkness),
+            color.b.saturating_sub(darkness),
+        );
 
-            let mut ctx = StarRenderCtx {
-                vertices,
-                texture_size,
-                color: &adjusted_color,
-                i,
-                screen_x,
-                screen_y,
-                radius,
-            };
+        let mut ctx = StarRenderCtx {
+            vertices,
+            texture_size,
+            color: &adjusted_color,
+            i,
+            screen_x,
+            screen_y,
+            radius,
+        };
 
-            // PERF: interestingly, the only difference in these functions is how the texture
-            // coords are set. In detailed, they are set to the dimensions of the texture_size. In
-            // far, all are set to the center of the texture_size.
-            // This makes a difference of a few percent points at profiling
-            match self.lod_level {
-                StarLodLevel::Detail => Self::create_vertecies_detailed(&mut ctx),
-                StarLodLevel::Point => unreachable!(),
-            }
-        }
-        // If star is not active, create an invisible quad
-        else {
-            let transparent = Color::rgba(0, 0, 0, 0); // Fully transparent
-
-            // Set all 4 vertices to be invisible (zero size, transparent)
-            for j in 0..4 {
-                vertices[i + j].color = transparent;
-
-                // PERF: we can just leave the position and tex_coords as before, since the thing
-                // is transparent anyway.
-            }
+        // PERF: interestingly, the only difference in these functions is how the texture
+        // coords are set. In detailed, they are set to the dimensions of the texture_size. In
+        // far, all are set to the center of the texture_size.
+        // This makes a difference of a few percent points at profiling
+        match self.lod_level {
+            StarLodLevel::Detail => Self::create_vertecies_detailed(&mut ctx),
+            StarLodLevel::Point => unreachable!(),
         }
     }
 
