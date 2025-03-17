@@ -233,8 +233,8 @@ impl Star {
         let star_free = FloatRect::new(
             width as f32 / -2.0,
             height as f32 / -2.0,
-            width as f32 * 0.90,
-            height as f32 * 0.90,
+            width as f32 * 0.7,
+            height as f32 * 0.7,
         );
         loop {
             self.position = Vector2f::new(
@@ -437,7 +437,7 @@ impl Stars {
             point_vertices_buf,
         };
 
-        stars.sort();
+        stars.sort(0);
         stars.update_vertices()?;
 
         Ok(stars)
@@ -543,9 +543,10 @@ impl Stars {
         Ok(())
     }
 
-    pub fn sort(&mut self) {
+    pub fn sort(&mut self, frame: u64) {
         self.stars
             .sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());
+        self.last_sorted_frame = frame;
     }
 }
 
@@ -569,8 +570,7 @@ impl<'s> ComprehensiveElement<'s> for Stars {
                 star.update_lazy(self.video.width, self.video.height);
             }
 
-            self.sort();
-            self.last_sorted_frame = counters.frames;
+            self.sort(counters.frames);
             info.set_custom_info("last_sort", self.last_sorted_frame);
         }
 
@@ -650,8 +650,8 @@ impl<'s> ComprehensiveElement<'s> for Stars {
 }
 
 #[inline]
-const fn lazy_interval(fps_limit: u64) -> u64 {
-    fps_limit / 30
+fn lazy_interval(fps_limit: u64) -> u64 {
+    2
 }
 
 #[allow(invalid_reference_casting)] // just fucking do what I say

@@ -15,7 +15,7 @@ fn bench_stars_update(c: &mut Criterion) {
     let video = VideoMode::new(width, height, 24);
 
     let mut stars = Stars::new(video, 500_000, None).unwrap();
-    stars.sort();
+    stars.sort(0);
 
     let c = Counters::start(60).unwrap();
     let mut font = Font::new().unwrap();
