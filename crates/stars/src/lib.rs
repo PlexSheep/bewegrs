@@ -553,8 +553,11 @@ impl<'s> ComprehensiveElement<'s> for Stars {
             return;
         }
 
-        self.stars.iter_mut().for_each(|star| {
-            star.update(self.speed, self.video.width, self.video.height);
+        let chunk_size = self.star_chunks();
+        self.stars.par_chunks_mut(chunk_size).for_each(|chunk| {
+            for star in chunk {
+                star.update(self.speed, self.video.width, self.video.height);
+            }
         });
 
         if counters.frames % 2 == 0 {
