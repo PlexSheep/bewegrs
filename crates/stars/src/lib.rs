@@ -235,16 +235,6 @@ impl Star {
         self.distance = Star::rand_distance();
     }
 
-    // Update the star's LOD level based on distance
-    #[inline]
-    fn update_lod(&mut self) {
-        self.lod_level = if self.distance < POINT_THRESH {
-            StarLodLevel::Detail
-        } else {
-            StarLodLevel::Point
-        };
-    }
-
     #[inline]
     fn rand_distance() -> f32 {
         rand::random_range(NEAR_PLANE..FAR_PLANE)
@@ -289,10 +279,7 @@ impl Star {
         // the star array again. Otherwise, far stars would get rendered over near stars
 
         self.active = self.is_visible();
-        self.update_lod();
     }
-
-    fn update_lazy(&mut self, _width: u32, _height: u32) {}
 
     #[inline]
     fn is_visible(&self) -> bool {
@@ -544,7 +531,7 @@ impl Stars {
 }
 
 impl<'s> ComprehensiveElement<'s> for Stars {
-    fn update(&mut self, counters: &Counter, _info: &mut Info<'s>) {
+    fn update(&mut self, _counters: &Counter, _info: &mut Info<'s>) {
         if self.speed == 0.0 {
             return;
         }
@@ -579,8 +566,7 @@ impl<'s> ComprehensiveElement<'s> for Stars {
         0
     }
 
-    fn update_slow(&mut self, counters: &Counter, info: &mut Info<'s>) {
-        self.sort(counters.frames);
+    fn update_slow(&mut self, _counters: &Counter, info: &mut Info<'s>) {
         info.set_custom_info(
             "LOD_Detailed",
             self.stars
