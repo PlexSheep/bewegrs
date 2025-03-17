@@ -118,6 +118,13 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
     gui.info.set_custom_info("near", NEAR_PLANE);
     gui.info.set_custom_info("spread", SPREAD);
     gui.info.set_custom_info("behind_cam", BEHIND_CAMERA);
+    gui.info.set_custom_info(
+        "resolution",
+        format_args!(
+            "{}x{} {}bpp",
+            video.width, video.height, video.bits_per_pixel
+        ),
+    );
     gui.add(Box::new(stars));
 
     let mut logo = RectangleShape::new();
