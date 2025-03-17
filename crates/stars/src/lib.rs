@@ -176,7 +176,39 @@ enum StarLodLevel {
     Point,
 }
 
+pub struct Star {
+    /// World-space position (centered around 0,0)
+    position: Vector2f,
+    distance: f32,
+    active: bool,
+    lod_level: StarLodLevel,
+}
+
+pub struct Stars {
+    stars: Vec<Star>,
+    star_vertices_buf: FBox<VertexBuffer>,
+    point_vertices_buf: FBox<VertexBuffer>,
+    star_vertices: Vec<Vertex>,
+    point_vertices: Vec<Vertex>,
+    video: VideoMode,
+    speed: f32,
+    texture: FBox<Texture>,
+    last_sorted_frame: u64,
+    texture_size: Vector2u,
+    texture_color: Color,
+}
+
 struct StarRenderCtx<'render> {
+    width: u32,
+    height: u32,
+    vertices: &'render mut [Vertex],
+    index: usize,
+    texture_size: &'render Vector2u,
+    color: &'render Color,
+    aspect_ratio: f32,
+}
+
+struct StarRenderDetailCtx<'render> {
     vertices: &'render mut [Vertex],
     texture_size: &'render Vector2u,
     color: &'render Color,
@@ -184,14 +216,6 @@ struct StarRenderCtx<'render> {
     screen_x: f32,
     screen_y: f32,
     radius: f32,
-}
-
-// Simple star data without the SFML object
-pub struct Star {
-    position: Vector2f, // World-space position (centered around 0,0)
-    distance: f32,      // z-coordinate
-    active: bool,       // Whether star is active/visible
-    lod_level: StarLodLevel,
 }
 
 impl Star {
@@ -245,28 +269,27 @@ impl Star {
     }
 
     fn update(&mut self, speed: f32, width: u32, height: u32) {
-        // Decrease distance (move closer)
         self.distance -= speed;
 
         // If star gets too close, reset it
         if self.distance <= -BEHIND_CAMERA {
             self.rand_pos(width, height);
             self.distance = FAR_PLANE;
-            // self.distance = rand::random_range((POINT_THRESH)..FAR_PLANE);
             self.update_lazy(width, height);
         }
         // If star gets too far, reset it
         else if self.distance >= FAR_PLANE {
             self.rand_pos(width, height);
-            // self.distance = rand::random_range(-BEHIND_CAMERA..0.0);
             self.distance = -BEHIND_CAMERA;
             self.update_lazy(width, height);
         }
+
+        // NOTE: setting these to constant values is important, because otherwise, we need to sort
+        // the star array again. Otherwise, far stars would get rendered over near stars
     }
 
     fn update_lazy(&mut self, _width: u32, _height: u32) {
         self.update_lod();
-        // Check visibility
         self.active = self.is_visible();
     }
 
@@ -277,36 +300,27 @@ impl Star {
     }
 
     // Create vertices for this star (a quad made of 4 vertices)
-    fn update_vertices(
-        &self,
-        width: u32,
-        height: u32,
-        vertices: &mut [Vertex],
-        index: usize,
-        texture_size: &Vector2u,
-        color: &Color,
-        aspect_ratio: f32,
-    ) {
+    fn update_vertices(&self, ctx: &mut StarRenderCtx) {
         // Skip point stars - they'll be handled separately
         if self.lod_level == StarLodLevel::Point || (!self.active) {
             // Make vertices transparent for skipped stars
-            let i = index * 4;
+            let i = ctx.index * 4;
             for j in 0..4 {
-                vertices[i + j].color = Color::TRANSPARENT;
+                ctx.vertices[i + j].color = Color::TRANSPARENT;
             }
             return;
         }
 
         // Create the 4 vertices of the quad (one star = 4 vertices)
-        let i = index * 4;
+        let i = ctx.index * 4;
 
         // If star is active, create a visible quad
         // Calculate perspective scale factor
         let scale = NEAR_PLANE / self.distance;
 
         // Calculate projected screen position
-        let screen_x = self.position.x * scale * aspect_ratio + width as f32 / 2.0;
-        let screen_y = self.position.y * scale + height as f32 / 2.0;
+        let screen_x = self.position.x * scale * ctx.aspect_ratio + ctx.width as f32 / 2.0;
+        let screen_y = self.position.y * scale + ctx.height as f32 / 2.0;
 
         // Depth ratio for color (farther stars are dimmer)
         let depth_ratio = (self.distance - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
@@ -317,16 +331,16 @@ impl Star {
 
         let darkness = 255 - brightness;
         let adjusted_color = Color::rgb(
-            color.r.saturating_sub(darkness),
-            color.g.saturating_sub(darkness),
-            color.b.saturating_sub(darkness),
+            ctx.color.r.saturating_sub(darkness),
+            ctx.color.g.saturating_sub(darkness),
+            ctx.color.b.saturating_sub(darkness),
         );
 
-        let mut ctx = StarRenderCtx {
-            vertices,
-            texture_size,
+        let mut ctx_detail = StarRenderDetailCtx {
+            vertices: ctx.vertices,
+            texture_size: ctx.texture_size,
             color: &adjusted_color,
-            i,
+            i: ctx.index,
             screen_x,
             screen_y,
             radius,
@@ -337,12 +351,12 @@ impl Star {
         // far, all are set to the center of the texture_size.
         // This makes a difference of a few percent points at profiling
         match self.lod_level {
-            StarLodLevel::Detail => Self::create_vertecies_detailed(&mut ctx),
+            StarLodLevel::Detail => Self::create_vertecies_detailed(&mut ctx_detail),
             StarLodLevel::Point => unreachable!(),
         }
     }
 
-    fn create_vertecies_detailed(ctx: &mut StarRenderCtx<'_>) {
+    fn create_vertecies_detailed(ctx: &mut StarRenderDetailCtx<'_>) {
         let tex_x: f32 = ctx.texture_size.x as f32;
         let tex_y: f32 = ctx.texture_size.y as f32;
 
@@ -364,20 +378,6 @@ impl Star {
         ctx.vertices[ctx.i + 2].tex_coords = Vector2f::new(tex_x, tex_y);
         ctx.vertices[ctx.i + 3].tex_coords = Vector2f::new(0.0, tex_y);
     }
-}
-
-pub struct Stars {
-    stars: Vec<Star>,
-    star_vertices_buf: FBox<VertexBuffer>,
-    point_vertices_buf: FBox<VertexBuffer>,
-    star_vertices: Vec<Vertex>,
-    point_vertices: Vec<Vertex>,
-    video: VideoMode,
-    speed: f32,
-    texture: FBox<Texture>,
-    last_sorted_frame: u64,
-    texture_size: Vector2u,
-    texture_color: Color,
 }
 
 impl Stars {
@@ -458,15 +458,16 @@ impl Stars {
         self.update_point_vertices()?;
         let aspect_ratio = self.video.width as f32 / self.video.height as f32;
         for (i, star) in self.stars.iter().enumerate() {
-            star.update_vertices(
-                self.video.width,
-                self.video.height,
-                &mut self.star_vertices,
-                i,
-                &self.texture_size,
-                &self.texture_color,
+            let mut ctx = StarRenderCtx {
+                width: self.video.width,
+                height: self.video.height,
+                vertices: &mut self.star_vertices,
+                index: i,
+                texture_size: &self.texture_size,
+                color: &self.texture_color,
                 aspect_ratio,
-            );
+            };
+            star.update_vertices(&mut ctx);
         }
         self.star_vertices_buf.update(&self.star_vertices, 0)?;
         self.point_vertices_buf.update(&self.point_vertices, 0)?;
