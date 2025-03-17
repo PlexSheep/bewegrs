@@ -7,7 +7,7 @@ use sfml::system::Clock;
 
 type RingBuffer<T> = ringbuffer::AllocRingBuffer<T>;
 
-/// lazy fields get updated every [MAX_FPS] frames
+/// lazy fields get updated every [Self::fps_limit] frames
 #[derive(Debug)]
 pub struct Counters {
     /// frame counter
