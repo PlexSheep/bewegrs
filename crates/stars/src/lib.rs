@@ -393,9 +393,9 @@ impl Stars {
         );
 
         let mut stars: Vec<Star> = Vec::with_capacity(amount);
-        for _ in 0..amount {
+        (0..amount).for_each(|_| {
             stars.push(Star::new(video.width, video.height));
-        }
+        });
 
         let mut star_vertices = vec![Vertex::default(); amount * 4];
         let mut point_vertices = vec![Vertex::default(); amount];
@@ -542,14 +542,14 @@ impl<'s> ComprehensiveElement<'s> for Stars {
             return;
         }
 
-        for star in self.stars.iter_mut() {
+        self.stars.iter_mut().for_each(|star| {
             star.update(self.speed, self.video.width, self.video.height);
-        }
+        });
 
         if counters.frames % 2 == 0 {
-            for star in self.stars.iter_mut() {
+            self.stars.iter_mut().for_each(|star| {
                 star.update_lazy(self.video.width, self.video.height);
-            }
+            });
         }
 
         if let Err(e) = self.update_vertices() {
