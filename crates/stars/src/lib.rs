@@ -36,6 +36,8 @@ const NEAR_PLANE: f32 = 5.5;
 const BEHIND_CAMERA: f32 = 60.5;
 const SPREAD: f32 = FAR_PLANE * 40.0;
 
+const FULL_FRAME_INTERVAL: u64 = 5;
+
 const UPDATE_TIERS: &[(f32, u64)] = &[
     (0.0, 1), // From nearest star to nearest+10% - every frame
     (0.1, 2), // From nearest+10% to nearest+30% - every 2 frames
@@ -429,7 +431,7 @@ impl Stars {
             let chunk_size = range_size.div_ceil(rayon::current_num_threads());
 
             // Create chunks based on the range
-            self.stars[start..(end % self.stars.len())]
+            self.stars[start..end]
                 .par_chunks(chunk_size)
                 .enumerate()
                 .for_each(|(chunk_index, chunk)| {
@@ -463,11 +465,30 @@ impl Stars {
     }
 
     fn get_update_ranges(&self, frame: u64) -> Vec<(usize, usize)> {
-        let (nearest_idx, _) = self.find_index_zero_distance();
-        let mut ranges_to_update = Vec::new();
         let star_count = self.stars.len();
 
-        ranges_to_update.push((nearest_idx, nearest_idx + 100_000));
+        // if frame % FULL_FRAME_INTERVAL == 0 {
+        //     return vec![(0, star_count)];
+        // }
+
+        let (nearest_idx, _) = self.find_index_zero_distance();
+        let mut ranges_to_update = Vec::new();
+
+        let near = nearest_idx;
+        let far = (nearest_idx - 100_000) % star_count;
+
+        if far >= near {
+            ranges_to_update.push((near, far));
+        } else {
+            ranges_to_update.push((near, star_count));
+            ranges_to_update.push((0, far));
+        }
+
+        ranges_to_update.push((far, near));
+
+        for range in &ranges_to_update {
+            assert!(range.1 <= self.stars.len())
+        }
 
         ranges_to_update
     }
