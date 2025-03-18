@@ -349,9 +349,8 @@ impl Stars {
 
         let update_tiers = vec![
             (0, 1),               // First 10% - update every frame
-            (amount / 10, 2),     // Next 20% - update every 2 frames
+            (amount / 10, 20),    // Next 20% - update every 2 frames
             (amount * 3 / 10, 4), // Next 30% - update every 4 frames
-            (amount * 6 / 10, 8), // Remaining 40% - update every 8 frames
         ];
 
         let mut stars = Stars {
@@ -368,9 +367,19 @@ impl Stars {
         };
 
         stars.sort(0);
-        stars.update_vertices()?;
+        stars.update_vertex_ranges(&stars.get_update_ranges(0))?;
 
         Ok(stars)
+    }
+
+    fn find_index_zero_distance(&self) -> (usize, Option<&Star>) {
+        self.stars
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(i, s)| s.distance < 0.0)
+            .map(|(i, s)| (i, Some(s)))
+            .unwrap_or((0, None))
     }
 
     fn create_star_texture(sprite_path: Option<PathBuf>) -> SfResult<(FBox<Texture>, Color)> {
@@ -395,36 +404,6 @@ impl Stars {
         self.stars.len().div_ceil(rayon::current_num_threads())
     }
 
-    fn update_vertices(&mut self) -> SfResult<()> {
-        let aspect_ratio = self.video.width as f32 / self.video.height as f32;
-
-        let chunk_size = self.star_chunks();
-        self.stars
-            .par_chunks(chunk_size)
-            .enumerate()
-            .for_each(|(chunk_index, chunk)| {
-                // SAFETY: We're creating a mutable reference to the vector, but using
-                // it only for specific star's elements based on index
-                let vertices_ref = unsafe { please_mutable_ref_vec(&self.star_vertices) };
-                for (i, star) in chunk.iter().enumerate() {
-                    let mut ctx = StarRenderCtx {
-                        width: self.video.width,
-                        height: self.video.height,
-                        vertices: vertices_ref,
-                        index: chunk_index * chunk_size + i,
-                        texture_size: &self.texture_size,
-                        color: &self.texture_color,
-                        aspect_ratio,
-                    };
-
-                    star.update_vertices(&mut ctx);
-                }
-            });
-
-        self.star_vertices_buf.update(&self.star_vertices, 0)?;
-        Ok(())
-    }
-
     pub fn sort(&mut self, frame: u64) {
         self.stars
             .sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());
@@ -438,6 +417,7 @@ impl Stars {
     }
 
     fn update_vertex_ranges(&mut self, ranges: &[(usize, usize)]) -> SfResult<()> {
+        let (current_idx, nearest_star): (usize, Option<&Star>) = self.find_index_zero_distance();
         let aspect_ratio = self.video.width as f32 / self.video.height as f32;
 
         // Update vertices for each range
@@ -527,15 +507,10 @@ impl<'s> ComprehensiveElement<'s> for Stars {
             }
         });
 
-        let ranges_to_update = self.get_update_ranges(counters.frames);
-
-        // Update only the necessary vertex ranges
-        if !ranges_to_update.is_empty() {
-            self.update_vertex_ranges(&ranges_to_update)
-                .unwrap_or_else(|e| {
-                    error!("Error updating vertices: {}", e);
-                });
-        }
+        self.update_vertex_ranges(&self.get_update_ranges(counters.frames))
+            .unwrap_or_else(|e| {
+                error!("Error updating vertices: {}", e);
+            });
     }
 
     fn draw_with(
