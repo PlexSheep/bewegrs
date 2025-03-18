@@ -184,6 +184,7 @@ pub struct Stars {
     last_sorted_frame: u64,
     texture_size: Vector2u,
     texture_color: Color,
+    update_tiers: Vec<(usize, u64)>,
 }
 
 struct StarRenderCtx<'render> {
@@ -346,6 +347,13 @@ impl Stars {
         let star_vertices_buf =
             VertexBuffer::new(PrimitiveType::QUADS, amount * 4, VertexBufferUsage::STREAM)?;
 
+        let update_tiers = vec![
+            (0, 1),               // First 10% - update every frame
+            (amount / 10, 2),     // Next 20% - update every 2 frames
+            (amount * 3 / 10, 4), // Next 30% - update every 4 frames
+            (amount * 6 / 10, 8), // Remaining 40% - update every 8 frames
+        ];
+
         let mut stars = Stars {
             stars,
             star_vertices_buf,
@@ -356,6 +364,7 @@ impl Stars {
             texture_size: texture.size(),
             texture,
             texture_color,
+            update_tiers,
         };
 
         stars.sort(0);
@@ -427,14 +436,90 @@ impl Stars {
         self.speed += add_speed * if modifier { 10.0 } else { 1.0 };
         self.speed = self.speed.clamp(-bounds, bounds);
     }
+
+    fn update_vertex_ranges(&mut self, ranges: &[(usize, usize)]) -> SfResult<()> {
+        let aspect_ratio = self.video.width as f32 / self.video.height as f32;
+
+        // Update vertices for each range
+        for &(start, end) in ranges {
+            // Skip empty ranges
+            if start >= end {
+                continue;
+            }
+
+            let range_size = end - start;
+            let chunk_size = range_size.div_ceil(rayon::current_num_threads());
+
+            // Create chunks based on the range
+            self.stars[start..end]
+                .par_chunks(chunk_size)
+                .enumerate()
+                .for_each(|(chunk_index, chunk)| {
+                    // SAFETY: We're creating a mutable reference to the vector, but using
+                    // it only for specific star's elements based on index
+                    let vertices_ref = unsafe { please_mutable_ref_vec(&self.star_vertices) };
+                    for (i, star) in chunk.iter().enumerate() {
+                        // Calculate the absolute index in the stars array
+                        let absolute_index = start + chunk_index * chunk_size + i;
+
+                        let mut ctx = StarRenderCtx {
+                            width: self.video.width,
+                            height: self.video.height,
+                            vertices: vertices_ref,
+                            index: absolute_index, // Use the absolute index here
+                            texture_size: &self.texture_size,
+                            color: &self.texture_color,
+                            aspect_ratio,
+                        };
+
+                        star.update_vertices(&mut ctx);
+                    }
+                });
+
+            // Update only this section of the vertex buffer
+            self.star_vertices_buf
+                .update(&self.star_vertices[start * 4..end * 4], (start * 4) as u32)?;
+        }
+
+        Ok(())
+    }
+
+    fn get_update_ranges(&self, frame: u64) -> Vec<(usize, usize)> {
+        // Identify which ranges need updating this frame
+        let mut ranges_to_update = Vec::new();
+
+        for i in 0..self.update_tiers.len() {
+            let (start_idx, update_freq) = self.update_tiers[i];
+
+            // Check if this tier needs updating this frame
+            if frame % update_freq == 0 {
+                let end_idx = if i + 1 < self.update_tiers.len() {
+                    self.update_tiers[i + 1].0
+                } else {
+                    self.stars.len()
+                };
+
+                if start_idx < end_idx {
+                    ranges_to_update.push((start_idx, end_idx));
+                }
+            }
+        }
+
+        if frame % 49 == 0 {
+            info!("ranges_to_update: {ranges_to_update:?}");
+        }
+
+        ranges_to_update
+    }
 }
 
 impl<'s> ComprehensiveElement<'s> for Stars {
-    fn update(&mut self, _counters: &Counter, _info: &mut Info<'s>) {
+    fn update(&mut self, counters: &Counter, _info: &mut Info<'s>) {
         if self.speed == 0.0 {
             return;
         }
 
+        // Update all star positions (cheap operation)
         let chunk_size = self.star_chunks();
         self.stars.par_chunks_mut(chunk_size).for_each(|chunk| {
             for star in chunk {
@@ -442,8 +527,14 @@ impl<'s> ComprehensiveElement<'s> for Stars {
             }
         });
 
-        if let Err(e) = self.update_vertices() {
-            error!("could not update stars vertices: {e}");
+        let ranges_to_update = self.get_update_ranges(counters.frames);
+
+        // Update only the necessary vertex ranges
+        if !ranges_to_update.is_empty() {
+            self.update_vertex_ranges(&ranges_to_update)
+                .unwrap_or_else(|e| {
+                    error!("Error updating vertices: {}", e);
+                });
         }
     }
 
