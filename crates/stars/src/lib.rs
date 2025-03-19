@@ -47,7 +47,6 @@ const UPDATE_TIERS: &[(f32, u64)] = &[
 
 // export this so that we can use benchmarks
 pub fn stars(args: Vec<String>) -> SfResult<()> {
-    setup();
     let program = args[0].clone();
 
     let mut opts = Options::new();
@@ -55,6 +54,8 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
     opts.optopt("i", "sprite", "sprite texture to use for stars", "IMAGE");
     opts.optflag("h", "help", "print help menu");
     opts.optflag("l", "hide-logo", "hide the logo");
+    opts.optflag("v", "verbose", "log more");
+    opts.optflag("q", "quiet", "disable logging");
     opts.optopt("f", "fps", "set the fps limit", "FPS");
     opts.optopt("e", "exit-after", "exit after SECS seconds", "SECS");
     let matches = match opts.parse(&args[1..]) {
@@ -63,6 +64,9 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
             panic!("{}", f.to_string())
         }
     };
+    if !matches.opt_present("verbose") {
+        setup(matches.opt_present("verbose"));
+    }
     if matches.opt_present("help") {
         print_usage(&program, opts);
         return Ok(());
@@ -167,12 +171,27 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
             }
         }
     }
+
+    let frames = gui.counter.frames;
+    let secs = gui.counter.seconds;
+    info!(
+        "{} frames in {} seconds ({:02.04} fps)",
+        frames,
+        secs,
+        frames as f32 / secs as f32
+    );
+
     Ok(())
 }
 
 fn print_usage(program: &str, opts: Options) {
-    let brief = format!("Usage: {} [options]", program);
-    print!("{}", opts.usage(&brief));
+    let brief = format!("Usage: {} [options]", program,);
+    print!(
+        "{}\n{} v{}",
+        opts.usage(&brief),
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION")
+    );
 }
 
 #[derive(Default, Clone, Copy)]
