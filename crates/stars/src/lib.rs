@@ -387,7 +387,7 @@ impl Stars {
         };
 
         stars.sort(0);
-        stars.update_vertex_ranges(&stars.get_update_ranges(0))?;
+        stars.update_vertex_ranges(&stars.get_update_ranges(0, stars.stars.len()))?;
 
         Ok(stars)
     }
@@ -397,7 +397,7 @@ impl Stars {
             .iter()
             .enumerate()
             .rev()
-            .find(|(i, s)| s.distance < 0.0)
+            .find(|(_i, s)| s.distance < 0.0)
             .map(|(i, s)| (i, Some(s)))
             .unwrap_or((0, None))
     }
@@ -483,10 +483,9 @@ impl Stars {
         Ok(())
     }
 
-    fn get_update_ranges(&self, frame: u64) -> Vec<(usize, usize)> {
+    fn get_update_ranges(&self, frame: u64, nearest_idx: usize) -> Vec<(usize, usize)> {
         let star_count = self.stars.len();
 
-        let (nearest_idx, _) = self.find_index_zero_distance();
         let mut ranges_to_update = Vec::new();
 
         for (range_percent, frame_interval) in UPDATE_TIERS {
@@ -500,7 +499,7 @@ impl Stars {
                 debug!("q {frame}: {lo_q} {hi_q}");
             }
 
-            let mut near = (nearest_idx + (star_count as f32 * lo_q).ceil() as usize) % star_count;
+            let near = (nearest_idx + (star_count as f32 * lo_q).ceil() as usize) % star_count;
             let mut far = (nearest_idx + (star_count as f32 * hi_q).ceil() as usize) % star_count;
 
             if far == 0 {
@@ -528,7 +527,7 @@ impl Stars {
 }
 
 impl<'s> ComprehensiveElement<'s> for Stars {
-    fn update(&mut self, counters: &Counter, info: &mut Info<'s>) {
+    fn update(&mut self, counters: &Counter, _info: &mut Info<'s>) {
         if self.speed == 0.0 {
             return;
         }
@@ -541,12 +540,11 @@ impl<'s> ComprehensiveElement<'s> for Stars {
             }
         });
 
-        self.update_vertex_ranges(&self.get_update_ranges(counters.frames))
+        let (nearest_idx, _) = self.find_index_zero_distance();
+        self.update_vertex_ranges(&self.get_update_ranges(counters.frames, nearest_idx))
             .unwrap_or_else(|e| {
                 error!("Error updating vertices: {}", e);
             });
-
-        info.set_custom_info("near_star_idx", self.find_index_zero_distance().0);
     }
 
     fn draw_with(
@@ -568,6 +566,7 @@ impl<'s> ComprehensiveElement<'s> for Stars {
 
     fn update_slow(&mut self, _counters: &Counter, info: &mut Info<'s>) {
         info.set_custom_info("last_sort", self.last_sorted_frame);
+        info.set_custom_info("near_star_idx", self.find_index_zero_distance().0);
     }
 
     fn process_event(&mut self, event: &Event, counters: &Counter, info: &mut Info<'s>) {
