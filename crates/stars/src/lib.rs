@@ -38,11 +38,11 @@ const SPREAD: f32 = FAR_PLANE * 40.0;
 
 const FULL_FRAME_INTERVAL: u64 = 5;
 
-const UPDATE_TIERS: &[(f32, u64)] = &[
-    (0.0, 1), // From nearest star to nearest+10% - every frame
-    (0.1, 2), // From nearest+10% to nearest+30% - every 2 frames
-    (0.3, 4), // From nearest+30% to nearest+60% - every 4 frames
-    (0.6, 8), // From nearest+60% to end - every 8 frames
+const UPDATE_TIERS: &[(std::ops::Range<u8>, u64)] = &[
+    (00..10, 1),  // From nearest star to nearest+10% - every frame
+    (10..30, 2),  // From nearest+10% to nearest+30% - every 2 frames
+    (30..60, 4),  // From nearest+30% to nearest+60% - every 4 frames
+    (60..100, 8), // From nearest+60% to end - every 8 frames
 ];
 
 // export this so that we can use benchmarks
@@ -64,7 +64,7 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
             panic!("{}", f.to_string())
         }
     };
-    if !matches.opt_present("verbose") {
+    if !matches.opt_present("quiet") {
         setup(matches.opt_present("verbose"));
     }
     if matches.opt_present("help") {
@@ -486,24 +486,38 @@ impl Stars {
     fn get_update_ranges(&self, frame: u64) -> Vec<(usize, usize)> {
         let star_count = self.stars.len();
 
-        // if frame % FULL_FRAME_INTERVAL == 0 {
-        //     return vec![(0, star_count)];
-        // }
-
         let (nearest_idx, _) = self.find_index_zero_distance();
         let mut ranges_to_update = Vec::new();
 
-        let near = nearest_idx;
-        let far = (nearest_idx - 100_000) % star_count;
+        for (range_percent, frame_interval) in UPDATE_TIERS {
+            if frame % *frame_interval != 0 {
+                continue;
+            }
 
-        if far >= near {
-            ranges_to_update.push((near, far));
-        } else {
-            ranges_to_update.push((near, star_count));
-            ranges_to_update.push((0, far));
+            let lo_q: f32 = range_percent.start as f32 / 100.0;
+            let hi_q: f32 = range_percent.end as f32 / 100.0;
+            if frame % 47 == 0 {
+                debug!("q {frame}: {lo_q} {hi_q}");
+            }
+
+            let mut near = (nearest_idx + (star_count as f32 * lo_q).ceil() as usize) % star_count;
+            let mut far = (nearest_idx + (star_count as f32 * hi_q).ceil() as usize) % star_count;
+
+            if far == 0 {
+                far = star_count;
+            }
+
+            if far < near {
+                ranges_to_update.push((near, far));
+            } else {
+                ranges_to_update.push((near, star_count));
+                ranges_to_update.push((0, far));
+            }
         }
 
-        ranges_to_update.push((far, near));
+        if frame % 47 == 0 {
+            debug!("update_ranges {frame}: {ranges_to_update:?}");
+        }
 
         for range in &ranges_to_update {
             assert!(range.1 <= self.stars.len())
@@ -514,7 +528,7 @@ impl Stars {
 }
 
 impl<'s> ComprehensiveElement<'s> for Stars {
-    fn update(&mut self, counters: &Counter, _info: &mut Info<'s>) {
+    fn update(&mut self, counters: &Counter, info: &mut Info<'s>) {
         if self.speed == 0.0 {
             return;
         }
@@ -531,6 +545,8 @@ impl<'s> ComprehensiveElement<'s> for Stars {
             .unwrap_or_else(|e| {
                 error!("Error updating vertices: {}", e);
             });
+
+        info.set_custom_info("near_star_idx", self.find_index_zero_distance().0);
     }
 
     fn draw_with(
