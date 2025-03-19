@@ -487,6 +487,7 @@ impl Stars {
         let star_count = self.stars.len();
         let mut ranges_to_update = Vec::new();
 
+        // Calculate ranges as before
         for (range_percent, frame_interval) in UPDATE_TIERS {
             if frame % *frame_interval != 0 {
                 continue;
@@ -495,45 +496,77 @@ impl Stars {
             let lo_q: f32 = range_percent.start as f32 / 100.0;
             let hi_q: f32 = range_percent.end as f32 / 100.0;
 
-            // Since stars are sorted in reverse (farthest first), we need to
-            // subtract from nearest_idx rather than add to it
-
-            // Use i128 to avoid unsigned underflow issues
             let nearest_idx_i128 = nearest_idx as i128;
 
-            // Calculate the start and end indices
-            // Converting to i128 first to avoid underflow
             let start_i128 = nearest_idx_i128 - (star_count as f32 * hi_q).ceil() as i128;
             let end_i128 = nearest_idx_i128 - (star_count as f32 * lo_q).ceil() as i128;
 
-            // Handle negative indices with modulo arithmetic
             let start =
                 ((start_i128 % star_count as i128) + star_count as i128) as usize % star_count;
             let end = ((end_i128 % star_count as i128) + star_count as i128) as usize % star_count;
 
-            // Handle wrap-around case
             if start >= end && !(start == 0 && end == 0) {
-                // The range wraps around the end of the array
                 ranges_to_update.push((start, star_count));
                 if end > 0 {
                     ranges_to_update.push((0, end));
                 }
             } else {
-                // Normal case
                 ranges_to_update.push((start, end));
             }
         }
 
+        // Merge overlapping/sequential ranges
+        let merged_ranges = Self::merge_ranges(&mut ranges_to_update, star_count);
+
         if frame % 47 == 0 {
-            debug!("update_ranges {frame}: {ranges_to_update:?}");
+            debug!("update_ranges {frame} (before merge): {ranges_to_update:?}");
+            debug!("update_ranges {frame} (after merge): {merged_ranges:?}");
         }
 
         // Validate ranges
-        for range in &ranges_to_update {
+        for range in &merged_ranges {
             assert!(range.1 <= star_count);
         }
 
-        ranges_to_update
+        merged_ranges
+    }
+
+    fn merge_ranges(ranges: &mut [(usize, usize)], star_count: usize) -> Vec<(usize, usize)> {
+        if ranges.len() <= 1 {
+            return ranges.to_vec();
+        }
+
+        // Sort ranges by start index
+        ranges.sort_by_key(|&(start, _)| start);
+
+        let mut result = Vec::new();
+        let mut current_range = ranges[0];
+
+        for &(start, end) in ranges.iter().skip(1) {
+            if start <= current_range.1 {
+                // Ranges overlap or are sequential, merge them
+                current_range.1 = current_range.1.max(end);
+            } else {
+                // Ranges don't overlap, push current and start new
+                result.push(current_range);
+                current_range = (start, end);
+            }
+        }
+
+        // Add the last range
+        result.push(current_range);
+
+        // Handle wrap-around case: if last range ends at star_count and first starts at 0
+        if result.len() >= 2 {
+            let last_idx = result.len() - 1;
+            if result[last_idx].1 == star_count && result[0].0 == 0 {
+                // Merge the last range with the first
+                result[0].0 = result[last_idx].0;
+                result.pop();
+            }
+        }
+
+        result
     }
 }
 
