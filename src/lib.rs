@@ -6,8 +6,8 @@ pub use sfml;
 pub use tracing;
 
 pub mod counter;
+pub mod graphic;
 pub mod shapes;
-pub mod ui;
 
 pub fn setup(verbose: bool) {
     let subscriber = tracing_subscriber::fmt()

@@ -1,8 +1,8 @@
 use bewegrs::counter::Counter;
+use bewegrs::graphic::ComprehensiveElement;
+use bewegrs::graphic::elements::info::Info;
 use bewegrs::sfml::graphics::Font;
 use bewegrs::sfml::window::VideoMode;
-use bewegrs::ui::ComprehensiveElement;
-use bewegrs::ui::elements::info::Info;
 use criterion::{Criterion, criterion_group, criterion_main};
 
 use stars::{DEFAULT_STAR_RADIUS, Stars};

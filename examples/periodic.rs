@@ -9,9 +9,9 @@ use sfml::{
 use tracing::info;
 
 use bewegrs::{
+    graphic::ComprehensiveUi,
     setup,
     shapes::{TriangleShape, hue_time},
-    ui::ComprehensiveUi,
 };
 
 const MAX_FPS: u64 = 60;

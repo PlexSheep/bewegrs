@@ -20,8 +20,8 @@ use tracing::{debug, error, info};
 
 use bewegrs::{
     counter::Counter,
+    graphic::{ComprehensiveElement, ComprehensiveUi, elements::info::Info},
     setup,
-    ui::{ComprehensiveElement, ComprehensiveUi, elements::info::Info},
 };
 
 const DEFAULT_MAX_FPS: u64 = 60;

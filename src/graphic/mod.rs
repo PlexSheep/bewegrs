@@ -19,13 +19,15 @@ pub trait ComprehensiveElement<'s>: 's {
         DEFAULT_Z_LEVEL
     }
 
+    #[allow(unused_variables)]
     fn draw_with(
         &mut self,
         sfml_w: &mut FBox<RenderWindow>,
         egui_w: &mut SfEgui,
         counters: &Counter,
         info: &mut Info<'s>,
-    );
+    ) {
+    }
 
     #[allow(unused_variables)]
     fn process_event(&mut self, event: &Event, counters: &Counter, info: &mut Info<'s>) {}
