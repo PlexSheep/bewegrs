@@ -175,7 +175,7 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
         "{} frames in {} seconds ({:02.04} fps)",
         frames,
         secs,
-        frames as f32 / secs as f32
+        frames as f32 / secs
     );
 
     Ok(())
