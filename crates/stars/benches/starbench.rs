@@ -5,7 +5,7 @@ use bewegrs::ui::ComprehensiveElement;
 use bewegrs::ui::elements::info::Info;
 use criterion::{Criterion, criterion_group, criterion_main};
 
-use stars::Stars;
+use stars::{DEFAULT_STAR_RADIUS, Stars};
 
 fn bench_stars_new(c: &mut Criterion) {
     let mut group = c.benchmark_group("stars_new");
@@ -16,7 +16,7 @@ fn bench_stars_new(c: &mut Criterion) {
     let video = VideoMode::new(width, height, 24);
 
     group.bench_function("stars_new", |b| {
-        b.iter(|| Stars::new(video, 100_000, None));
+        b.iter(|| Stars::new(video, 100_000, None, 60, DEFAULT_STAR_RADIUS).unwrap());
     });
 
     group.finish();
@@ -30,7 +30,7 @@ fn bench_stars_update(c: &mut Criterion) {
     let height = 1080;
     let video = VideoMode::new(width, height, 24);
 
-    let mut stars = Stars::new(video, 1_000_000, None).unwrap();
+    let mut stars = Stars::new(video, 1_000_000, None, 60, DEFAULT_STAR_RADIUS).unwrap();
     stars.sort(0);
 
     let mut c = Counter::start(60).unwrap();

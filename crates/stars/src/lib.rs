@@ -24,13 +24,13 @@ use bewegrs::{
     ui::{ComprehensiveElement, ComprehensiveUi, elements::info::Info},
 };
 
-const DEFAULT_MAX_FPS: u64 = 60;
-const DEFAULT_STAR_AMOUNT: usize = 500_000;
+pub const DEFAULT_MAX_FPS: u64 = 60;
+pub const DEFAULT_STAR_AMOUNT: usize = 500_000;
+pub const DEFAULT_SPEED: f32 = 0.8;
 const BG: Color = Color::rgb(30, 20, 20);
-const DEFAULT_SPEED: f32 = 0.8;
 
 // Star configuration
-const STAR_RADIUS: f32 = 150.0;
+pub const DEFAULT_STAR_RADIUS: f32 = 150.0;
 const FAR_PLANE: f32 = 2200.0;
 const NEAR_PLANE: f32 = 5.5;
 const BEHIND_CAMERA: f32 = 60.5;
@@ -55,6 +55,12 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
     opts.optflag("v", "verbose", "log more");
     opts.optflag("q", "quiet", "disable logging");
     opts.optopt("f", "fps", "set the fps limit", "FPS");
+    opts.optopt(
+        "r",
+        "radius",
+        "set the star radiuses (default 150)",
+        "RADIUS",
+    );
     opts.optopt("e", "exit-after", "exit after SECS seconds", "SECS");
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -85,6 +91,12 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
         .unwrap_or(DEFAULT_MAX_FPS);
     info!("fps limit: {fps_limit}");
 
+    let radius: f32 = matches
+        .opt_get("radius")
+        .expect("could not radius option")
+        .unwrap_or(DEFAULT_STAR_RADIUS);
+    info!("radius: {radius}");
+
     let exit_after: Option<u64> = matches
         .opt_get("exit-after")
         .expect("could not get fps option");
@@ -114,13 +126,15 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
             .set_logo(&texture, "Christoph J. Scherr\nsoftware@cscherr.de")?;
     }
 
-    let stars = Stars::new(video, stars_amount, sprite_path)?;
+    let stars = Stars::new(video, stars_amount, sprite_path, fps_limit, radius)?;
     gui.info.set_custom_info("stars", stars.stars.len());
-    gui.info.set_custom_info("star_r", STAR_RADIUS);
+    gui.info.set_custom_info("star_r", radius);
     gui.info.set_custom_info("far", FAR_PLANE);
     gui.info.set_custom_info("near", NEAR_PLANE);
     gui.info.set_custom_info("spread", SPREAD);
     gui.info.set_custom_info("behind_cam", BEHIND_CAMERA);
+    gui.info
+        .set_custom_info("speed", format_args!("{:.03}", DEFAULT_SPEED));
     gui.info
         .set_custom_info("threadool_threads", rayon::current_num_threads());
     gui.info.set_custom_info(
@@ -173,10 +187,10 @@ pub fn stars(args: Vec<String>) -> SfResult<()> {
     let frames = gui.counter.frames;
     let secs = gui.counter.seconds;
     info!(
-        "{} frames in {} seconds ({:02.04} fps)",
+        "{} frames in {} seconds ({:02.04}ms per frame)",
         frames,
         secs,
-        frames as f32 / secs as f32
+        secs * 1000.0 / frames as f32
     );
 
     Ok(())
@@ -211,6 +225,7 @@ pub struct Stars {
     texture_size: Vector2u,
     texture_color: Color,
     keyframe: bool,
+    radius: f32,
 }
 
 struct StarRenderCtx<'render> {
@@ -221,6 +236,7 @@ struct StarRenderCtx<'render> {
     texture_size: &'render Vector2u,
     color: &'render Color,
     aspect_ratio: f32,
+    radius: f32,
 }
 
 impl Star {
@@ -263,8 +279,8 @@ impl Star {
         }
     }
 
-    fn update(&mut self, speed: f32, width: u32, height: u32) {
-        self.distance -= speed;
+    fn update(&mut self, speed: f32, width: u32, height: u32, fps_limit: u64) {
+        self.distance -= speed * (DEFAULT_MAX_FPS as f32 / fps_limit as f32);
 
         // If star gets too close, reset it
         if self.distance <= -BEHIND_CAMERA {
@@ -316,7 +332,7 @@ impl Star {
         let brightness = ((1.0 - depth_ratio) * 255.0) as u8;
 
         // Calculate radius based on distance
-        let radius = STAR_RADIUS * scale;
+        let radius = ctx.radius * scale;
 
         let darkness = 255 - brightness;
         let adjusted_color = Color::rgb(
@@ -345,7 +361,13 @@ impl Star {
 }
 
 impl Stars {
-    pub fn new(video: VideoMode, amount: usize, sprite_path: Option<PathBuf>) -> SfResult<Self> {
+    pub fn new(
+        video: VideoMode,
+        amount: usize,
+        sprite_path: Option<PathBuf>,
+        fps_limit: u64,
+        radius: f32,
+    ) -> SfResult<Self> {
         let (texture, texture_color) = Self::create_star_texture(sprite_path)?;
 
         info!(
@@ -384,10 +406,11 @@ impl Stars {
             texture,
             texture_color,
             keyframe: false,
+            radius,
         };
 
         stars.sort(0);
-        let ranges = &stars.get_update_ranges(0, stars.stars.len());
+        let ranges = &stars.get_update_ranges(0, fps_limit, stars.stars.len());
         stars.update_vertex_ranges(ranges)?;
 
         Ok(stars)
@@ -431,8 +454,8 @@ impl Stars {
         self.last_sorted_frame = frame;
     }
 
-    fn adjust_speed(&mut self, add_speed: f32, modifier: bool, fps_limit: u64, frame: u64) {
-        let bounds = fps_limit as f32;
+    fn adjust_speed(&mut self, add_speed: f32, modifier: bool, frame: u64) {
+        let bounds = DEFAULT_MAX_FPS as f32;
         self.speed += add_speed * if modifier { 10.0 } else { 1.0 };
         self.speed = self.speed.clamp(-bounds, bounds);
 
@@ -475,6 +498,7 @@ impl Stars {
                             texture_size: &self.texture_size,
                             color: &self.texture_color,
                             aspect_ratio,
+                            radius: self.radius,
                         };
 
                         star.update_vertices(&mut ctx);
@@ -489,7 +513,12 @@ impl Stars {
         Ok(())
     }
 
-    fn get_update_ranges(&mut self, frame: u64, nearest_idx: usize) -> Vec<(usize, usize)> {
+    fn get_update_ranges(
+        &mut self,
+        frame: u64,
+        fps_limit: u64,
+        nearest_idx: usize,
+    ) -> Vec<(usize, usize)> {
         let star_count = self.stars.len();
         if self.keyframe {
             self.keyframe = false;
@@ -501,7 +530,11 @@ impl Stars {
 
         // Calculate ranges as before
         for (range_percent, frame_interval) in UPDATE_TIERS {
-            if frame % *frame_interval != 0 {
+            let frame_interval: u64 = (*frame_interval as f32
+                * (fps_limit as f32 / DEFAULT_MAX_FPS as f32))
+                .ceil() as u64;
+            assert_ne!(frame_interval, 0);
+            if frame % frame_interval != 0 {
                 continue;
             }
 
@@ -604,13 +637,18 @@ impl<'s> ComprehensiveElement<'s> for Stars {
 
         // Update all star positions (cheap operation)
         let chunk_size = self.star_chunks();
+        let fps_limit = counters.fps_limit;
         self.stars.par_chunks_mut(chunk_size).for_each(|chunk| {
             for star in chunk {
-                star.update(self.speed, self.video.width, self.video.height);
+                star.update(self.speed, self.video.width, self.video.height, fps_limit);
             }
         });
 
-        let ranges = self.get_update_ranges(counters.frames, self.find_index_zero_distance().0);
+        let ranges = self.get_update_ranges(
+            counters.frames,
+            counters.fps_limit,
+            self.find_index_zero_distance().0,
+        );
         self.update_vertex_ranges(&ranges).unwrap_or_else(|e| {
             error!("Error updating vertices: {}", e);
         });
@@ -635,7 +673,6 @@ impl<'s> ComprehensiveElement<'s> for Stars {
 
     fn update_slow(&mut self, _counters: &Counter, info: &mut Info<'s>) {
         info.set_custom_info("last_sort", self.last_sorted_frame);
-        info.set_custom_info("near_star_idx", self.find_index_zero_distance().0);
     }
 
     fn process_event(&mut self, event: &Event, counters: &Counter, info: &mut Info<'s>) {
@@ -645,7 +682,7 @@ impl<'s> ComprehensiveElement<'s> for Stars {
                 shift,
                 ..
             } => {
-                self.adjust_speed(0.1, *shift, counters.fps_limit, counters.frames);
+                self.adjust_speed(0.1, *shift, counters.fps_limit);
                 info.set_custom_info("speed", format_args!("{:.03}", self.speed));
             }
             Event::KeyPressed {
@@ -653,7 +690,7 @@ impl<'s> ComprehensiveElement<'s> for Stars {
                 shift,
                 ..
             } => {
-                self.adjust_speed(-0.1, *shift, counters.fps_limit, counters.frames);
+                self.adjust_speed(-0.1, *shift, counters.fps_limit);
                 info.set_custom_info("speed", format_args!("{:.03}", self.speed));
             }
             Event::KeyPressed {
