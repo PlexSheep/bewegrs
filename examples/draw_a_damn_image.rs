@@ -1,6 +1,6 @@
 use sfml::{
     SfResult,
-    graphics::{Font, Image, IntRect, RenderTarget, RenderWindow, Sprite, Texture},
+    graphics::{Image, IntRect, RenderTarget, RenderWindow, Sprite, Texture},
     system::{Time, sleep},
     window::{Style, VideoMode},
 };
