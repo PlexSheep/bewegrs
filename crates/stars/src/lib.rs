@@ -40,7 +40,7 @@ const UPDATE_TIERS: &[(std::ops::Range<u8>, u64)] = &[
     (00..10, 1),  // From nearest star to nearest+10% - every frame
     (10..30, 2),  // From nearest+10% to nearest+30% - every 2 frames
     (30..60, 4),  // From nearest+30% to nearest+60% - every 4 frames
-    (60..100, 4), // From nearest+60% to end - every 4 frames
+    (60..100, 8), // From nearest+60% to end - every 4 frames
 ];
 
 // export this so that we can use benchmarks
@@ -580,7 +580,7 @@ impl Stars {
 
 impl<'s> ComprehensiveElement<'s> for Stars {
     fn update(&mut self, counters: &Counter, _info: &mut Info<'s>) {
-        if self.speed == 0.0 {
+        if self.speed == 0.0 && counters.frames % 6 != 0 {
             return;
         }
 
