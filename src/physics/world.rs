@@ -91,14 +91,14 @@ impl<'s> PhysicsWorld2D<'s> {
     pub fn add(&mut self, element: Box<dyn PhysicsElement<'s>>) -> PElementID {
         let id = self.get_new_element_id();
 
-        let rbody_h = self.rigid_body_set.insert(element.init_rigid_body());
+        let rbody_h = self
+            .rigid_body_set
+            .insert(RigidBodyBuilder::new(element.rigid_body_type()));
 
-        let mut coll = element.init_collider();
-        let pos = element.get_position();
-        coll.set_position(Isometry::new(
-            vector![pos.x / self.scale, pos.y / self.scale],
-            0.0,
-        ));
+        let size = translate_from_position(&element.get_collider_shape(), self.scale);
+        let mut coll =
+            ColliderBuilder::cuboid(size.translation.x / 2.0, size.translation.y / 2.0).build();
+        coll.set_position(translate_from_position(&element.get_position(), self.scale));
         let coll_h = self
             .collider_set
             .insert_with_parent(coll, rbody_h, &mut self.rigid_body_set);
@@ -129,11 +129,7 @@ impl<'s> PhysicsWorld2D<'s> {
     fn get_position(&self, id: &PElementID) -> Option<Vector2f> {
         let col_h = self.get_collider_handle(id)?;
         let elem = &self.collider_set[col_h];
-        let pos = elem.position();
-        Some(Vector2f::from((
-            pos.translation.x / self.scale,
-            pos.translation.y / self.scale,
-        )))
+        Some(translate_to_position(elem.position(), self.scale))
     }
 
     pub fn get_new_element_id(&self) -> PElementID {
@@ -175,11 +171,7 @@ impl<'s> PhysicsWorld2D<'s> {
         for (col_h, element) in self.elements.values_mut() {
             let pos = {
                 let elem: &Collider = &self.collider_set[*col_h];
-                let pos = elem.position();
-                Some(Vector2f::from((
-                    pos.translation.x / self.scale,
-                    pos.translation.y / self.scale,
-                )))
+                Some(translate_to_position(elem.position(), self.scale))
             }
             .unwrap();
 
@@ -202,4 +194,12 @@ impl<'s> PhysicsWorld2D<'s> {
     pub fn process_event(&self, _event: &Event, _counter: &Counter, _info: &mut Info<'s>) {}
 
     pub fn update_slow(&mut self, _counters: &Counter, _info: &mut Info<'s>) {}
+}
+
+fn translate_from_position(point: &Vector2f, scale: f32) -> Isometry<Real> {
+    Isometry::new(vector![point.x / scale, point.y / scale], 0.0)
+}
+
+fn translate_to_position(point: &Isometry<Real>, scale: f32) -> Vector2f {
+    Vector2f::from((point.translation.x * scale, point.translation.y * scale))
 }

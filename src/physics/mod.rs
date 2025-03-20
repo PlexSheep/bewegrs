@@ -24,8 +24,8 @@ impl PElementID {
     }
 }
 pub trait PhysicsElement<'s>: ComprehensiveElement<'s> {
-    fn init_rigid_body(&self) -> RigidBody;
-    fn init_collider(&self) -> Collider;
+    fn rigid_body_type(&self) -> RigidBodyType;
     fn set_position(&mut self, position: Vector2f);
     fn get_position(&self) -> Vector2f;
+    fn get_collider_shape(&self) -> Vector2f;
 }

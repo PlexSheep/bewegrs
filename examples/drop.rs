@@ -2,7 +2,7 @@ use std::{any::Any, marker::PhantomData};
 
 use rapier2d::{
     na::dimension,
-    prelude::{ColliderBuilder, RigidBody, RigidBodyBuilder},
+    prelude::{ColliderBuilder, RigidBody, RigidBodyBuilder, RigidBodyType, SharedShape},
 };
 use sfml::{
     SfResult,
@@ -62,23 +62,24 @@ impl<'s, S: Shape<'s>> ComprehensiveElement<'s> for PhysicsRect<'s, S> {
 }
 
 impl<'s, S: Shape<'s>> PhysicsElement<'s> for PhysicsRect<'s, S> {
-    fn init_rigid_body(&self) -> rapier2d::prelude::RigidBody {
-        if self.fixed {
-            RigidBodyBuilder::fixed().build()
-        } else {
-            RigidBodyBuilder::dynamic().build()
-        }
-    }
-
-    fn init_collider(&self) -> rapier2d::prelude::Collider {
-        let dimensions = self.shape.global_bounds();
-        ColliderBuilder::cuboid(dimensions.width / 2.0, dimensions.height / 2.0).build()
-    }
     fn set_position(&mut self, position: Vector2f) {
         self.shape.set_position(position);
     }
     fn get_position(&self) -> Vector2f {
         self.shape.position()
+    }
+
+    fn rigid_body_type(&self) -> RigidBodyType {
+        if self.fixed {
+            RigidBodyType::Fixed
+        } else {
+            RigidBodyType::Dynamic
+        }
+    }
+
+    fn get_collider_shape(&self) -> Vector2f {
+        let bounds = self.shape.global_bounds();
+        (bounds.width, bounds.height).into()
     }
 }
 
@@ -94,7 +95,7 @@ fn main() -> BwgResult<()> {
 
     let mut gui = ComprehensiveUi::build(&mut window, &font, &video, MAX_FPS)?;
 
-    let mut world = PhysicsWorld2D::build(1)?;
+    let mut world = PhysicsWorld2D::build(20)?;
 
     let ground_size: Vector2f = (900.0, 20.0).into();
     let mut ground = RectangleShape::with_size(ground_size);
