@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::fmt::{Display, Write};
 
 use egui_sfml::{DrawInput, SfEgui};
-use sfml::SfResult;
 use sfml::cpp::FBox;
 use sfml::graphics::{
     Color, Font, RenderTarget, RenderWindow, Sprite, Text, Texture, Transformable,
@@ -12,6 +11,7 @@ use sfml::window::{Key, VideoMode};
 use tracing::{debug, error};
 
 use crate::counter::Counter;
+use crate::errors::BwgResult;
 
 #[derive(Default)]
 pub enum InfoKind {
@@ -63,7 +63,11 @@ impl<'s> Info<'s> {
         }
     }
 
-    pub fn set_logo(&mut self, logo_texture: &'s Texture, logo_text: impl Display) -> SfResult<()> {
+    pub fn set_logo(
+        &mut self,
+        logo_texture: &'s Texture,
+        logo_text: impl Display,
+    ) -> BwgResult<()> {
         let mut logo = Sprite::with_texture(logo_texture);
         let logo_rect = logo.texture_rect();
         let scale = 1.0 / ((logo_rect.width + logo_rect.height) as f32 / 100.0);

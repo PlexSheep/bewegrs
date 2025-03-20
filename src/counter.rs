@@ -5,6 +5,8 @@ use sfml::SfResult;
 use sfml::cpp::FBox;
 use sfml::system::Clock;
 
+use crate::errors::BwgResult;
+
 type RingBuffer<T> = ringbuffer::AllocRingBuffer<T>;
 
 /// lazy fields get updated every [Self::fps_limit] frames
@@ -31,7 +33,7 @@ impl Counter {
     // pub const MS_PER_FRAME: f32 = 1000.0 / MAX_FPS as f32;
     // pub const MAX_FPS_U64: u64 = MAX_FPS as u64;
 
-    pub fn start(fps_limit: u64) -> SfResult<Self> {
+    pub fn start(fps_limit: u64) -> BwgResult<Self> {
         let mut c = Counter {
             clock: Clock::start()?,
             l_frames: 0,

@@ -1,10 +1,10 @@
 use egui_sfml::SfEgui;
-use sfml::SfResult;
 use sfml::cpp::FBox;
 use sfml::graphics::{Font, RenderWindow};
 use sfml::window::{Event, VideoMode};
 
 use crate::counter::Counter;
+use crate::errors::BwgResult;
 
 use self::elements::info::Info;
 
@@ -60,7 +60,7 @@ impl<'s> ComprehensiveUi<'s> {
         font: &'s FBox<Font>,
         video: &'s VideoMode,
         fps_limit: u64,
-    ) -> SfResult<Self> {
+    ) -> BwgResult<Self> {
         let counters = Counter::start(fps_limit)?;
         window.set_framerate_limit(fps_limit as u32);
 
