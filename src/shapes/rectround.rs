@@ -1,3 +1,4 @@
+use sfml::graphics::{CustomShape, Shape};
 use sfml::{graphics::CustomShapePoints, system::Vector2f};
 use std::f32::consts::PI;
 
@@ -10,7 +11,23 @@ pub struct RectRoundShape {
 }
 
 impl RectRoundShape {
-    pub fn new(width: f32, height: f32, radius: f32) -> Self {
+    pub fn new<'s>(width: f32, height: f32, radius: f32) -> CustomShape<'s> {
+        // Ensure radius isn't too large
+        let max_radius = width.min(height) / 2.0;
+        let radius = radius.min(max_radius);
+
+        let inner = RectRoundShape {
+            width,
+            height,
+            radius,
+            points_per_corner: 8, // Default corner resolution
+        };
+        let mut shape = CustomShape::new(Box::new(inner));
+        shape.set_outline_thickness(3.0);
+        shape
+    }
+
+    pub fn basic_shape(width: f32, height: f32, radius: f32) -> Self {
         // Ensure radius isn't too large
         let max_radius = width.min(height) / 2.0;
         let radius = radius.min(max_radius);

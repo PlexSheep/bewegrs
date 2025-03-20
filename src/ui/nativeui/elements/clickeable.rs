@@ -17,8 +17,7 @@ pub struct Clickable<'s> {
 
 impl<'s> Clickable<'s> {
     pub fn new_rect_round(width: f32, height: f32, radius: f32) -> Self {
-        let rect_shape = RectRoundShape::new(width, height, radius);
-        let mut shape = CustomShape::new(Box::new(rect_shape));
+        let mut shape = RectRoundShape::new(width, height, radius);
 
         // Set default colors
         shape.set_fill_color(Color::rgb(80, 80, 80));
