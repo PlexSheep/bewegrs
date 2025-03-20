@@ -584,6 +584,10 @@ impl<'s> ComprehensiveElement<'s> for Stars {
             return;
         }
 
+        if counters.frames % 6 == 0 {
+            self.sort(counters.frames);
+        }
+
         // Update all star positions (cheap operation)
         let chunk_size = self.star_chunks();
         self.stars.par_chunks_mut(chunk_size).for_each(|chunk| {
