@@ -35,7 +35,6 @@ const FAR_PLANE: f32 = 2200.0;
 const NEAR_PLANE: f32 = 5.5;
 const BEHIND_CAMERA: f32 = 60.5;
 const SPREAD: f32 = FAR_PLANE * 40.0;
-const ROTATION_SPEED: f32 = 0.01;
 
 const UPDATE_TIERS: &[(std::ops::Range<u8>, u64)] = &[
     (00..10, 1),  // From nearest star to nearest+10% - every frame
@@ -214,6 +213,7 @@ pub struct Star {
     distance: f32,
     active: bool,
     rotation: f32,
+    rotation_speed: f32,
 }
 
 pub struct Stars {
@@ -248,6 +248,7 @@ impl Star {
             distance: 0.0,
             active: true,
             rotation: 0.0,
+            rotation_speed: 0.0,
         }
     }
 
@@ -255,6 +256,7 @@ impl Star {
         self.rand_pos(width, height);
         self.distance = Star::rand_distance();
         self.rotation = rand::random_range(0.0..std::f32::consts::PI * 2.0);
+        self.rotation_speed = (rand::random::<f32>() - 0.5) * 0.05;
     }
 
     #[inline]
@@ -286,7 +288,7 @@ impl Star {
     fn update(&mut self, speed: f32, width: u32, height: u32, fps_limit: u64) {
         self.distance -= speed * (DEFAULT_MAX_FPS as f32 / fps_limit as f32);
 
-        self.rotation += ROTATION_SPEED;
+        self.rotation += self.rotation_speed;
 
         // If star gets too close, reset it
         if self.distance <= -BEHIND_CAMERA {
@@ -325,15 +327,14 @@ impl Star {
         // Create the 4 vertices of the quad (one star = 4 vertices)
         let i = ctx.index * 4;
 
-        // If star is active, create a visible quad
         // Calculate perspective scale factor
         let scale = NEAR_PLANE / self.distance;
 
-        // Calculate projected screen position
+        // Calculate projected screen position (center of star)
         let screen_x = self.position.x * scale * ctx.aspect_ratio + ctx.width as f32 / 2.0;
         let screen_y = self.position.y * scale + ctx.height as f32 / 2.0;
 
-        // Depth ratio for color (farther stars are dimmer)
+        // Depth ratio for color
         let depth_ratio = (self.distance - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
         let brightness = ((1.0 - depth_ratio) * 255.0) as u8;
 
@@ -347,22 +348,46 @@ impl Star {
             ctx.color.b.saturating_sub(darkness),
         );
 
-        let tex_x: f32 = ctx.texture_size.x as f32;
-        let tex_y: f32 = ctx.texture_size.y as f32;
-
+        // Set color for all vertices
         for j in 0..4 {
             ctx.vertices[i + j].color = adjusted_color;
         }
 
-        ctx.vertices[i].position = Vector2f::new(screen_x - radius, screen_y - radius);
-        ctx.vertices[i + 1].position = Vector2f::new(screen_x + radius, screen_y - radius);
-        ctx.vertices[i + 2].position = Vector2f::new(screen_x + radius, screen_y + radius);
-        ctx.vertices[i + 3].position = Vector2f::new(screen_x - radius, screen_y + radius);
+        // Precalculate sin and cos of rotation angle
+        let cos_rot = self.rotation.cos();
+        let sin_rot = self.rotation.sin();
 
-        ctx.vertices[i].tex_coords = Vector2f::new(0.0, 0.0);
-        ctx.vertices[i + 1].tex_coords = Vector2f::new(tex_x, 0.0);
-        ctx.vertices[i + 2].tex_coords = Vector2f::new(tex_x, tex_y);
-        ctx.vertices[i + 3].tex_coords = Vector2f::new(0.0, tex_y);
+        // Define the four corners relative to center (before rotation)
+        let corners = [
+            (-radius, -radius), // Top-left
+            (radius, -radius),  // Top-right
+            (radius, radius),   // Bottom-right
+            (-radius, radius),  // Bottom-left
+        ];
+
+        // Apply rotation to vertex positions
+        for (j, &(corner_x, corner_y)) in corners.iter().enumerate() {
+            // Apply rotation formula:
+            // x' = x*cos(θ) - y*sin(θ)
+            // y' = x*sin(θ) + y*cos(θ)
+            let rotated_x = corner_x * cos_rot - corner_y * sin_rot;
+            let rotated_y = corner_x * sin_rot + corner_y * cos_rot;
+
+            // Set vertex position
+            ctx.vertices[i + j].position =
+                Vector2f::new(screen_x + rotated_x, screen_y + rotated_y);
+        }
+
+        // Get texture dimensions
+        let tex_x: f32 = ctx.texture_size.x as f32;
+        let tex_y: f32 = ctx.texture_size.y as f32;
+
+        // Set texture coordinates
+        // These coordinates align with the rotated vertices to make the texture rotate with the quad
+        ctx.vertices[i].tex_coords = Vector2f::new(0.0, 0.0); // Top-left
+        ctx.vertices[i + 1].tex_coords = Vector2f::new(tex_x, 0.0); // Top-right
+        ctx.vertices[i + 2].tex_coords = Vector2f::new(tex_x, tex_y); // Bottom-right
+        ctx.vertices[i + 3].tex_coords = Vector2f::new(0.0, tex_y); // Bottom-left
     }
 }
 
@@ -633,11 +658,7 @@ impl Stars {
 
 impl<'s> ComprehensiveElement<'s> for Stars {
     fn update(&mut self, counters: &Counter, _info: &mut Info<'s>) {
-        if self.speed == 0.0 && counters.frames % 6 != 0 {
-            return;
-        }
-
-        if counters.frames % 6 == 0 {
+        if counters.frames % 6 == 0 && self.speed != 0.0 {
             self.sort(counters.frames);
         }
 
