@@ -6,7 +6,9 @@ pub use sfml;
 pub use tracing;
 
 pub mod counter;
+pub mod errors;
 pub mod graphic;
+pub mod physics;
 pub mod shapes;
 
 pub fn setup(verbose: bool) {
