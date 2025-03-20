@@ -36,8 +36,6 @@ const NEAR_PLANE: f32 = 5.5;
 const BEHIND_CAMERA: f32 = 60.5;
 const SPREAD: f32 = FAR_PLANE * 40.0;
 
-const FULL_FRAME_INTERVAL: u64 = 5;
-
 const UPDATE_TIERS: &[(std::ops::Range<u8>, u64)] = &[
     (00..10, 1),  // From nearest star to nearest+10% - every frame
     (10..30, 2),  // From nearest+10% to nearest+30% - every 2 frames
