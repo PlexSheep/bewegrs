@@ -40,19 +40,19 @@ pub trait ComprehensiveElement<'s>: 's {
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug, Hash, Default)]
-pub struct ElementID {
+pub struct GElementID {
     inner: u128,
 }
 
-impl rand::distr::Distribution<ElementID> for rand::distr::StandardUniform {
-    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> ElementID {
-        ElementID {
+impl rand::distr::Distribution<GElementID> for rand::distr::StandardUniform {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> GElementID {
+        GElementID {
             inner: rng.random(),
         }
     }
 }
 
-impl ElementID {
+impl GElementID {
     pub fn new() -> Self {
         rand::random()
     }
@@ -62,7 +62,7 @@ pub struct ComprehensiveUi<'s> {
     egui_window: SfEgui,
     pub font: &'s FBox<Font>,
     pub info: Info<'s>,
-    elements: HashMap<ElementID, Box<dyn ComprehensiveElement<'s>>>,
+    elements: HashMap<GElementID, Box<dyn ComprehensiveElement<'s>>>,
     pub counter: Counter,
 }
 
@@ -95,17 +95,17 @@ impl<'s> ComprehensiveUi<'s> {
         Ok(gui)
     }
 
-    pub fn add(&mut self, element: Box<dyn ComprehensiveElement<'s>>) -> ElementID {
+    pub fn add(&mut self, element: Box<dyn ComprehensiveElement<'s>>) -> GElementID {
         let id = self.get_new_element_id();
         self.elements.insert(id, element);
         id
     }
 
-    pub fn get(&self, id: &ElementID) -> Option<&dyn ComprehensiveElement<'s>> {
+    pub fn get(&self, id: &GElementID) -> Option<&dyn ComprehensiveElement<'s>> {
         self.elements.get(id).map(|v| &**v)
     }
 
-    pub fn get_mut(&mut self, id: &ElementID) -> Option<&mut dyn ComprehensiveElement<'s>> {
+    pub fn get_mut(&mut self, id: &GElementID) -> Option<&mut dyn ComprehensiveElement<'s>> {
         self.elements.get_mut(id).map(|v| &mut **v)
     }
 
@@ -150,8 +150,8 @@ impl<'s> ComprehensiveUi<'s> {
         window.display();
     }
 
-    pub fn get_new_element_id(&self) -> ElementID {
-        let mut id: ElementID;
+    pub fn get_new_element_id(&self) -> GElementID {
+        let mut id: GElementID;
         let mut guard = 0;
         loop {
             id = rand::random();

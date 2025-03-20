@@ -1,11 +1,18 @@
+use std::collections::HashMap;
+
 use rapier2d::prelude::*;
+use sfml::system::Vector2f;
 
 use crate::counter::Counter;
 use crate::errors::BwgResult;
 use crate::graphic::ComprehensiveElement;
 use crate::graphic::elements::info::Info;
 
-pub struct PhysicsWorld {
+use super::{PElementID, PhysicsElement};
+
+pub const DEFAULT_GRAVITY: Vector<f32> = vector![0.0, 9.81];
+
+pub struct PhysicsWorld2D<'s> {
     pub gravity: Vector<f32>,
     pub integration_parameters: IntegrationParameters,
     pub physics_pipeline: PhysicsPipeline,
@@ -20,9 +27,11 @@ pub struct PhysicsWorld {
     pub query_pipeline: QueryPipeline,
     pub physics_hooks: (),
     pub event_handler: (),
+
+    elements: HashMap<PElementID, (ColliderHandle, Box<dyn PhysicsElement<'s>>)>,
 }
 
-impl PhysicsWorld {
+impl<'s> PhysicsWorld2D<'s> {
     pub fn build() -> BwgResult<Self> {
         let mut rigid_body_set = RigidBodySet::new();
         let mut collider_set = ColliderSet::new();
@@ -40,7 +49,7 @@ impl PhysicsWorld {
         collider_set.insert_with_parent(collider, ball_body_handle, &mut rigid_body_set);
 
         /* Create other structures necessary for the simulation. */
-        let gravity = vector![0.0, -9.81];
+        let gravity = DEFAULT_GRAVITY;
         let integration_parameters = IntegrationParameters::default();
         let physics_pipeline = PhysicsPipeline::new();
         let island_manager = IslandManager::new();
@@ -55,6 +64,8 @@ impl PhysicsWorld {
 
         let rigid_body_set = RigidBodySet::new();
         let collider_set = ColliderSet::new();
+
+        let elements = HashMap::new();
 
         Ok(Self {
             gravity,
@@ -71,11 +82,73 @@ impl PhysicsWorld {
             event_handler,
             rigid_body_set,
             collider_set,
+            elements,
         })
+    }
+
+    pub fn add(&mut self, element: Box<dyn PhysicsElement<'s>>) -> PElementID {
+        let id = self.get_new_element_id();
+
+        let rbody_h = self.rigid_body_set.insert(element.init_rigid_body());
+
+        let mut coll = element.init_collider();
+        let pos = element.get_position();
+        coll.set_position(Isometry::new(vector![pos.x, pos.y], 0.0));
+        let coll_h = self
+            .collider_set
+            .insert_with_parent(coll, rbody_h, &mut self.rigid_body_set);
+
+        self.elements.insert(id, (coll_h, element));
+        id
+    }
+
+    pub fn get(&self, id: &PElementID) -> Option<&dyn PhysicsElement<'s>> {
+        self.elements.get(id).map(|v| v.1.as_ref())
+    }
+
+    fn get_collider_handle(&self, id: &PElementID) -> Option<ColliderHandle> {
+        self.elements.get(id).map(|v| v.0)
+    }
+
+    pub fn get_mut(&mut self, id: &PElementID) -> Option<&mut dyn PhysicsElement<'s>> {
+        self.elements.get_mut(id).map(|v| v.1.as_mut())
+    }
+
+    pub fn remove(&mut self, id: &PElementID) -> Option<Box<dyn PhysicsElement<'s>>> {
+        let (id, bo) = self.elements.remove(id)?;
+        self.collider_set
+            .remove(id, &mut self.island_manager, &mut self.rigid_body_set, true);
+        Some(bo)
+    }
+
+    fn get_position(&self, id: &PElementID) -> Option<Vector2f> {
+        let col_h = self.get_collider_handle(id)?;
+        let elem = &self.collider_set[col_h];
+        let pos = elem.position();
+        Some(Vector2f::from((pos.translation.x, pos.translation.y)))
+    }
+
+    pub fn get_new_element_id(&self) -> PElementID {
+        let mut id: PElementID;
+        let mut guard = 0;
+        loop {
+            id = rand::random();
+
+            if !self.elements.contains_key(&id) {
+                break;
+            }
+            if guard > 20 {
+                panic!(
+                    "Could not find a new element id. This is almost certainly a super weird edge case, since the keyspace is 2^128 bit"
+                )
+            }
+            guard += 1;
+        }
+        id
     }
 }
 
-impl<'s> ComprehensiveElement<'s> for PhysicsWorld {
+impl<'s> ComprehensiveElement<'s> for PhysicsWorld2D<'s> {
     fn update(&mut self, _counters: &Counter, _info: &mut Info<'s>) {
         self.physics_pipeline.step(
             &self.gravity,
@@ -92,5 +165,27 @@ impl<'s> ComprehensiveElement<'s> for PhysicsWorld {
             &self.physics_hooks,
             &self.event_handler,
         );
+
+        for (col_h, element) in self.elements.values_mut() {
+            let pos = {
+                let elem: &Collider = &self.collider_set[*col_h];
+                let pos = elem.position();
+                Some(Vector2f::from((pos.translation.x, pos.translation.y)))
+            }
+            .unwrap();
+
+            element.set_position(pos);
+        }
+    }
+    fn draw_with(
+        &mut self,
+        sfml_w: &mut sfml::cpp::FBox<sfml::graphics::RenderWindow>,
+        egui_w: &mut egui_sfml::SfEgui,
+        counters: &Counter,
+        info: &mut Info<'s>,
+    ) {
+        for (_colh, element) in self.elements.values_mut() {
+            element.draw_with(sfml_w, egui_w, counters, info);
+        }
     }
 }
