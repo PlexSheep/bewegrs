@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use bewegrs::errors::BwgResult;
 use rayon::prelude::*;
 
 use bewegrs::sfml;
@@ -44,7 +45,7 @@ const UPDATE_TIERS: &[(std::ops::Range<u8>, u64)] = &[
 ];
 
 // export this so that we can use benchmarks
-pub fn stars(args: Vec<String>) -> SfResult<()> {
+pub fn stars(args: Vec<String>) -> BwgResult<()> {
     let program = args[0].clone();
 
     let mut opts = Options::new();

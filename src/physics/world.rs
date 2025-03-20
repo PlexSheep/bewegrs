@@ -1,6 +1,7 @@
 use rapier2d::prelude::*;
 
 use crate::counter::Counter;
+use crate::errors::BwgResult;
 use crate::graphic::ComprehensiveElement;
 use crate::graphic::elements::info::Info;
 
@@ -22,7 +23,7 @@ pub struct PhysicsWorld {
 }
 
 impl PhysicsWorld {
-    pub fn build() -> BwgResult<()> {
+    pub fn build() -> BwgResult<Self> {
         let mut rigid_body_set = RigidBodySet::new();
         let mut collider_set = ColliderSet::new();
 
@@ -55,7 +56,7 @@ impl PhysicsWorld {
         let rigid_body_set = RigidBodySet::new();
         let collider_set = ColliderSet::new();
 
-        Self {
+        Ok(Self {
             gravity,
             integration_parameters,
             physics_pipeline,
@@ -70,7 +71,7 @@ impl PhysicsWorld {
             event_handler,
             rigid_body_set,
             collider_set,
-        }
+        })
     }
 }
 

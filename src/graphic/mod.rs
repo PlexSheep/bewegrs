@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use egui_sfml::SfEgui;
 use sfml::cpp::FBox;
 use sfml::graphics::{Font, RenderWindow};
@@ -37,11 +39,30 @@ pub trait ComprehensiveElement<'s>: 's {
     fn update(&mut self, counters: &Counter, info: &mut Info<'s>) {}
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug, Hash, Default)]
+pub struct ElementID {
+    inner: u128,
+}
+
+impl rand::distr::Distribution<ElementID> for rand::distr::StandardUniform {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> ElementID {
+        ElementID {
+            inner: rng.random(),
+        }
+    }
+}
+
+impl ElementID {
+    pub fn new() -> Self {
+        rand::random()
+    }
+}
+
 pub struct ComprehensiveUi<'s> {
     egui_window: SfEgui,
     pub font: &'s FBox<Font>,
     pub info: Info<'s>,
-    elements: Vec<Box<dyn ComprehensiveElement<'s>>>,
+    elements: HashMap<ElementID, Box<dyn ComprehensiveElement<'s>>>,
     pub counter: Counter,
 }
 
@@ -49,7 +70,7 @@ impl<'s> ComprehensiveUi<'s> {
     pub fn add_event(&mut self, event: &Event) {
         self.egui_window.add_event(event);
 
-        for element in self.elements.iter_mut() {
+        for element in self.elements.values_mut() {
             element.process_event(event, &self.counter, &mut self.info);
         }
         self.info.process_event(event);
@@ -66,7 +87,7 @@ impl<'s> ComprehensiveUi<'s> {
 
         let gui = Self {
             egui_window: SfEgui::new(window),
-            elements: Vec::new(),
+            elements: HashMap::new(),
             info: Info::new(font, video, &counters),
             font,
             counter: counters,
@@ -74,13 +95,22 @@ impl<'s> ComprehensiveUi<'s> {
         Ok(gui)
     }
 
-    pub fn add(&mut self, element: Box<dyn ComprehensiveElement<'s>>) {
-        self.elements.push(element);
-        self.elements.sort_by_key(|a| a.z_level());
+    pub fn add(&mut self, element: Box<dyn ComprehensiveElement<'s>>) -> ElementID {
+        let id = self.get_new_element_id();
+        self.elements.insert(id, element);
+        id
+    }
+
+    pub fn get(&self, id: &ElementID) -> Option<&dyn ComprehensiveElement<'s>> {
+        self.elements.get(id).map(|v| &**v)
+    }
+
+    pub fn get_mut(&mut self, id: &ElementID) -> Option<&mut dyn ComprehensiveElement<'s>> {
+        self.elements.get_mut(id).map(|v| &mut **v)
     }
 
     pub fn draw_with(&mut self, window: &mut FBox<RenderWindow>) {
-        for element in self.elements.iter_mut() {
+        for element in self.elements.values_mut() {
             element.draw_with(window, &mut self.egui_window, &self.counter, &mut self.info);
         }
         self.info
@@ -88,14 +118,14 @@ impl<'s> ComprehensiveUi<'s> {
     }
 
     pub fn update_slow(&mut self) {
-        for element in self.elements.iter_mut() {
+        for element in self.elements.values_mut() {
             element.update_slow(&self.counter, &mut self.info);
         }
         self.info.update_slow(&self.counter);
     }
 
     pub fn update(&mut self) {
-        for element in self.elements.iter_mut() {
+        for element in self.elements.values_mut() {
             element.update(&self.counter, &mut self.info);
         }
         self.info.update(&self.counter);
@@ -118,5 +148,24 @@ impl<'s> ComprehensiveUi<'s> {
     pub fn display(&mut self, window: &mut FBox<RenderWindow>) {
         self.counter.frame_prepare_display();
         window.display();
+    }
+
+    pub fn get_new_element_id(&self) -> ElementID {
+        let mut id: ElementID;
+        let mut guard = 0;
+        loop {
+            id = rand::random();
+
+            if !self.elements.contains_key(&id) {
+                break;
+            }
+            if guard > 20 {
+                panic!(
+                    "Could not find a new element id. This is almost certainly a super weird edge case, since the keyspace is 2^128 bit"
+                )
+            }
+            guard += 1;
+        }
+        id
     }
 }

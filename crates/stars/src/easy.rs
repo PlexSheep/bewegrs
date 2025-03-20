@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use bewegrs::errors::BwgResult;
 use rayon::prelude::*;
 
 use bewegrs::sfml;
@@ -43,7 +44,7 @@ fn main() {
 }
 
 // export this so that we can use benchmarks
-pub fn stars(args: Vec<String>) -> SfResult<()> {
+pub fn stars(args: Vec<String>) -> BwgResult<()> {
     let program = args[0].clone();
 
     let mut opts = Options::new();
