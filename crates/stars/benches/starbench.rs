@@ -33,14 +33,18 @@ fn bench_stars_update(c: &mut Criterion) {
     let mut stars = Stars::new(video, 1_000_000, None).unwrap();
     stars.sort(0);
 
-    let c = Counter::start(60).unwrap();
+    let mut c = Counter::start(60).unwrap();
     let mut font = Font::new().unwrap();
     font.load_from_memory_static(include_bytes!("../../../resources/sansation.ttf"))
         .unwrap();
     let mut info = Info::new(&font, &video, &c);
 
     group.bench_function("stars_update", |b| {
-        b.iter(|| stars.update(&c, &mut info));
+        b.iter(|| {
+            c.frame_start();
+            stars.update(&c, &mut info);
+            c.frame_prepare_display();
+        })
     });
 
     group.finish();
