@@ -35,6 +35,7 @@ const FAR_PLANE: f32 = 2200.0;
 const NEAR_PLANE: f32 = 5.5;
 const BEHIND_CAMERA: f32 = 60.5;
 const SPREAD: f32 = FAR_PLANE * 40.0;
+const ROTATION_SPEED: f32 = 0.01;
 
 const UPDATE_TIERS: &[(std::ops::Range<u8>, u64)] = &[
     (00..10, 1),  // From nearest star to nearest+10% - every frame
@@ -212,6 +213,7 @@ pub struct Star {
     position: Vector2f,
     distance: f32,
     active: bool,
+    rotation: f32,
 }
 
 pub struct Stars {
@@ -245,12 +247,14 @@ impl Star {
             position: Vector2f::new(0.0, 0.0),
             distance: 0.0,
             active: true,
+            rotation: 0.0,
         }
     }
 
     fn randomize(&mut self, width: u32, height: u32) {
         self.rand_pos(width, height);
         self.distance = Star::rand_distance();
+        self.rotation = rand::random_range(0.0..std::f32::consts::PI * 2.0);
     }
 
     #[inline]
@@ -281,6 +285,8 @@ impl Star {
 
     fn update(&mut self, speed: f32, width: u32, height: u32, fps_limit: u64) {
         self.distance -= speed * (DEFAULT_MAX_FPS as f32 / fps_limit as f32);
+
+        self.rotation += ROTATION_SPEED;
 
         // If star gets too close, reset it
         if self.distance <= -BEHIND_CAMERA {
