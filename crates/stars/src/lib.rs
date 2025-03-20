@@ -210,6 +210,7 @@ pub struct Stars {
     last_sorted_frame: u64,
     texture_size: Vector2u,
     texture_color: Color,
+    keyframe: bool,
 }
 
 struct StarRenderCtx<'render> {
@@ -382,10 +383,12 @@ impl Stars {
             texture_size: texture.size(),
             texture,
             texture_color,
+            keyframe: false,
         };
 
         stars.sort(0);
-        stars.update_vertex_ranges(&stars.get_update_ranges(0, stars.stars.len()))?;
+        let ranges = &stars.get_update_ranges(0, stars.stars.len());
+        stars.update_vertex_ranges(ranges)?;
 
         Ok(stars)
     }
@@ -428,10 +431,15 @@ impl Stars {
         self.last_sorted_frame = frame;
     }
 
-    fn adjust_speed(&mut self, add_speed: f32, modifier: bool, fps_limit: u64) {
+    fn adjust_speed(&mut self, add_speed: f32, modifier: bool, fps_limit: u64, frame: u64) {
         let bounds = fps_limit as f32;
         self.speed += add_speed * if modifier { 10.0 } else { 1.0 };
         self.speed = self.speed.clamp(-bounds, bounds);
+
+        if self.speed == 0.0 {
+            self.keyframe = true;
+            self.sort(frame);
+        }
     }
 
     fn update_vertex_ranges(&mut self, ranges: &[(usize, usize)]) -> SfResult<()> {
@@ -481,8 +489,14 @@ impl Stars {
         Ok(())
     }
 
-    fn get_update_ranges(&self, frame: u64, nearest_idx: usize) -> Vec<(usize, usize)> {
+    fn get_update_ranges(&mut self, frame: u64, nearest_idx: usize) -> Vec<(usize, usize)> {
         let star_count = self.stars.len();
+        if self.keyframe {
+            self.keyframe = false;
+            debug!("keyframe: {frame}");
+            return vec![(0, star_count)];
+        }
+
         let mut ranges_to_update = Vec::new();
 
         // Calculate ranges as before
@@ -596,11 +610,10 @@ impl<'s> ComprehensiveElement<'s> for Stars {
             }
         });
 
-        let (nearest_idx, _) = self.find_index_zero_distance();
-        self.update_vertex_ranges(&self.get_update_ranges(counters.frames, nearest_idx))
-            .unwrap_or_else(|e| {
-                error!("Error updating vertices: {}", e);
-            });
+        let ranges = self.get_update_ranges(counters.frames, self.find_index_zero_distance().0);
+        self.update_vertex_ranges(&ranges).unwrap_or_else(|e| {
+            error!("Error updating vertices: {}", e);
+        });
     }
 
     fn draw_with(
@@ -632,7 +645,7 @@ impl<'s> ComprehensiveElement<'s> for Stars {
                 shift,
                 ..
             } => {
-                self.adjust_speed(0.1, *shift, counters.fps_limit);
+                self.adjust_speed(0.1, *shift, counters.fps_limit, counters.frames);
                 info.set_custom_info("speed", format_args!("{:.03}", self.speed));
             }
             Event::KeyPressed {
@@ -640,7 +653,7 @@ impl<'s> ComprehensiveElement<'s> for Stars {
                 shift,
                 ..
             } => {
-                self.adjust_speed(-0.1, *shift, counters.fps_limit);
+                self.adjust_speed(-0.1, *shift, counters.fps_limit, counters.frames);
                 info.set_custom_info("speed", format_args!("{:.03}", self.speed));
             }
             Event::KeyPressed {
