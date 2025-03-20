@@ -17,7 +17,7 @@ use bewegrs::{
 const MAX_FPS: u64 = 60;
 
 fn main() -> SfResult<()> {
-    setup();
+    setup(true);
 
     let video = VideoMode::fullscreen_modes()[0];
     info!("video mode: {video:?}");
