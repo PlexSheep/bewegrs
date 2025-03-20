@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use rapier2d::prelude::*;
 use sfml::system::Vector2f;
+use sfml::window::Event;
 
 use crate::counter::Counter;
 use crate::errors::BwgResult;
-use crate::graphic::ComprehensiveElement;
 use crate::graphic::elements::info::Info;
 
 use super::{PElementID, PhysicsElement};
@@ -29,10 +29,11 @@ pub struct PhysicsWorld2D<'s> {
     pub event_handler: (),
 
     elements: HashMap<PElementID, (ColliderHandle, Box<dyn PhysicsElement<'s>>)>,
+    scale: f32,
 }
 
 impl<'s> PhysicsWorld2D<'s> {
-    pub fn build() -> BwgResult<Self> {
+    pub fn build(scale: u64) -> BwgResult<Self> {
         let mut rigid_body_set = RigidBodySet::new();
         let mut collider_set = ColliderSet::new();
 
@@ -83,6 +84,7 @@ impl<'s> PhysicsWorld2D<'s> {
             rigid_body_set,
             collider_set,
             elements,
+            scale: scale as f32,
         })
     }
 
@@ -93,7 +95,10 @@ impl<'s> PhysicsWorld2D<'s> {
 
         let mut coll = element.init_collider();
         let pos = element.get_position();
-        coll.set_position(Isometry::new(vector![pos.x, pos.y], 0.0));
+        coll.set_position(Isometry::new(
+            vector![pos.x / self.scale, pos.y / self.scale],
+            0.0,
+        ));
         let coll_h = self
             .collider_set
             .insert_with_parent(coll, rbody_h, &mut self.rigid_body_set);
@@ -125,7 +130,10 @@ impl<'s> PhysicsWorld2D<'s> {
         let col_h = self.get_collider_handle(id)?;
         let elem = &self.collider_set[col_h];
         let pos = elem.position();
-        Some(Vector2f::from((pos.translation.x, pos.translation.y)))
+        Some(Vector2f::from((
+            pos.translation.x / self.scale,
+            pos.translation.y / self.scale,
+        )))
     }
 
     pub fn get_new_element_id(&self) -> PElementID {
@@ -146,10 +154,8 @@ impl<'s> PhysicsWorld2D<'s> {
         }
         id
     }
-}
 
-impl<'s> ComprehensiveElement<'s> for PhysicsWorld2D<'s> {
-    fn update(&mut self, _counters: &Counter, _info: &mut Info<'s>) {
+    pub fn update(&mut self, _counters: &Counter, _info: &mut Info<'s>) {
         self.physics_pipeline.step(
             &self.gravity,
             &self.integration_parameters,
@@ -170,14 +176,18 @@ impl<'s> ComprehensiveElement<'s> for PhysicsWorld2D<'s> {
             let pos = {
                 let elem: &Collider = &self.collider_set[*col_h];
                 let pos = elem.position();
-                Some(Vector2f::from((pos.translation.x, pos.translation.y)))
+                Some(Vector2f::from((
+                    pos.translation.x / self.scale,
+                    pos.translation.y / self.scale,
+                )))
             }
             .unwrap();
 
             element.set_position(pos);
         }
     }
-    fn draw_with(
+
+    pub fn draw_with(
         &mut self,
         sfml_w: &mut sfml::cpp::FBox<sfml::graphics::RenderWindow>,
         egui_w: &mut egui_sfml::SfEgui,
@@ -188,4 +198,8 @@ impl<'s> ComprehensiveElement<'s> for PhysicsWorld2D<'s> {
             element.draw_with(sfml_w, egui_w, counters, info);
         }
     }
+
+    pub fn process_event(&self, _event: &Event, _counter: &Counter, _info: &mut Info<'s>) {}
+
+    pub fn update_slow(&mut self, _counters: &Counter, _info: &mut Info<'s>) {}
 }

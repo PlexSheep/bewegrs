@@ -1,4 +1,9 @@
-use rapier2d::prelude::{ColliderBuilder, RigidBody, RigidBodyBuilder};
+use std::{any::Any, marker::PhantomData};
+
+use rapier2d::{
+    na::dimension,
+    prelude::{ColliderBuilder, RigidBody, RigidBodyBuilder},
+};
 use sfml::{
     SfResult,
     graphics::{
@@ -6,9 +11,9 @@ use sfml::{
         RenderWindow, Shape, Transformable, glsl::Vec2,
     },
     system::Vector2f,
-    window::{Event, Key, Style, VideoMode},
+    window::{Event, Key, Style, VideoMode, mouse::Button},
 };
-use tracing::info;
+use tracing::{info, instrument::WithSubscriber};
 
 use bewegrs::{
     errors::BwgResult,
@@ -21,25 +26,30 @@ use bewegrs::{
 const MAX_FPS: u64 = 60;
 const BG: Color = Color::rgb(30, 20, 20);
 
-struct Thing<'s> {
-    shape: CustomShape<'s>,
+const DEFAULT_X_SIZE: f32 = 300.0;
+const DEFAULT_Y_SIZE: f32 = 200.0;
+const R: f32 = 8.0;
+
+struct PhysicsRect<'s, S>
+where
+    S: Shape<'s>,
+{
+    shape: S,
+    lt: PhantomData<&'s S>,
+    fixed: bool,
 }
 
-impl Thing<'_> {
-    const X: f32 = 300.0;
-    const Y: f32 = 200.0;
-    const R: f32 = 8.0;
-
-    fn new() -> Self {
-        let mut shape = RectRoundShape::new(Self::X, Self::Y, Self::R);
-        shape.set_fill_color(Color::RED);
-        shape.set_origin((Self::X / 2.0, Self::Y / 2.0));
-        shape.set_position((600.0, 200.0));
-        Self { shape }
+impl<'s, S: Shape<'s>> PhysicsRect<'s, S> {
+    fn new(shape: S, stay_static: bool) -> Self {
+        Self {
+            shape,
+            lt: PhantomData,
+            fixed: stay_static,
+        }
     }
 }
 
-impl<'s> ComprehensiveElement<'s> for Thing<'s> {
+impl<'s, S: Shape<'s>> ComprehensiveElement<'s> for PhysicsRect<'s, S> {
     fn draw_with(
         &mut self,
         sfml_w: &mut sfml::cpp::FBox<RenderWindow>,
@@ -51,58 +61,18 @@ impl<'s> ComprehensiveElement<'s> for Thing<'s> {
     }
 }
 
-impl<'s> PhysicsElement<'s> for Thing<'s> {
+impl<'s, S: Shape<'s>> PhysicsElement<'s> for PhysicsRect<'s, S> {
     fn init_rigid_body(&self) -> rapier2d::prelude::RigidBody {
-        RigidBodyBuilder::dynamic().build()
+        if self.fixed {
+            RigidBodyBuilder::fixed().build()
+        } else {
+            RigidBodyBuilder::dynamic().build()
+        }
     }
 
     fn init_collider(&self) -> rapier2d::prelude::Collider {
-        ColliderBuilder::cuboid(Self::X / 2.0, Self::Y / 2.0).build()
-    }
-    fn set_position(&mut self, position: Vector2f) {
-        self.shape.set_position(position);
-    }
-    fn get_position(&self) -> Vector2f {
-        self.shape.position()
-    }
-}
-
-struct Floor<'s> {
-    shape: RectangleShape<'s>,
-}
-
-impl Floor<'_> {
-    const X: f32 = 900.0;
-    const Y: f32 = 20.0;
-
-    fn new() -> Self {
-        let mut shape = RectangleShape::with_size((Self::X, Self::Y).into());
-        shape.set_fill_color(Color::GREEN);
-        shape.set_origin((Self::X / 2.0, Self::Y / 2.0));
-        shape.set_position((600.0, 600.0));
-        Self { shape }
-    }
-}
-
-impl<'s> ComprehensiveElement<'s> for Floor<'s> {
-    fn draw_with(
-        &mut self,
-        sfml_w: &mut sfml::cpp::FBox<RenderWindow>,
-        _egui_w: &mut egui_sfml::SfEgui,
-        _counters: &bewegrs::counter::Counter,
-        _info: &mut bewegrs::graphic::elements::info::Info<'s>,
-    ) {
-        sfml_w.draw(&self.shape);
-    }
-}
-
-impl<'s> PhysicsElement<'s> for Floor<'s> {
-    fn init_rigid_body(&self) -> rapier2d::prelude::RigidBody {
-        RigidBodyBuilder::fixed().build()
-    }
-
-    fn init_collider(&self) -> rapier2d::prelude::Collider {
-        ColliderBuilder::cuboid(Self::X / 2.0, Self::Y / 2.0).build()
+        let dimensions = self.shape.global_bounds();
+        ColliderBuilder::cuboid(dimensions.width / 2.0, dimensions.height / 2.0).build()
     }
     fn set_position(&mut self, position: Vector2f) {
         self.shape.set_position(position);
@@ -124,15 +94,25 @@ fn main() -> BwgResult<()> {
 
     let mut gui = ComprehensiveUi::build(&mut window, &font, &video, MAX_FPS)?;
 
-    let mut world = PhysicsWorld2D::build()?;
+    let mut world = PhysicsWorld2D::build(1)?;
 
-    let the_ground = Floor::new();
-    let my_box = Thing::new();
+    let ground_size: Vector2f = (900.0, 20.0).into();
+    let mut ground = RectangleShape::with_size(ground_size);
+    ground.set_fill_color(Color::GREEN);
+    ground.set_position((150.0, 750.0));
+    // ground.set_origin(ground_size);
+    let the_ground = PhysicsRect::new(ground, true);
+
+    let mut rr = RectRoundShape::new(DEFAULT_X_SIZE, DEFAULT_Y_SIZE, R);
+    rr.set_fill_color(Color::RED);
+    rr.set_position((600.0, 100.0));
+    // rr.set_origin((DEFAULT_X_SIZE / 2.0, DEFAULT_Y_SIZE / 2.0));
+    let my_box = PhysicsRect::new(rr, false);
 
     world.add(Box::new(the_ground));
     world.add(Box::new(my_box));
 
-    gui.add(Box::new(world));
+    gui.set_world(world);
 
     'mainloop: loop {
         while let Some(event) = window.poll_event() {
@@ -142,6 +122,18 @@ fn main() -> BwgResult<()> {
                 | Event::KeyPressed {
                     code: Key::Escape, ..
                 } => break 'mainloop,
+                Event::MouseButtonPressed {
+                    button: Button::Left,
+                    x,
+                    y,
+                } => {
+                    let mut clicky = CircleShape::new(8.0, 32);
+                    clicky.set_fill_color(Color::GREEN);
+                    clicky.set_origin((8.0, 8.0));
+                    clicky.set_position((x as f32, y as f32));
+                    let my_box = PhysicsRect::new(clicky, false);
+                    gui.physics_world.as_mut().unwrap().add(Box::new(my_box));
+                }
                 _ => (),
             }
         }

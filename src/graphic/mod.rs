@@ -7,6 +7,7 @@ use sfml::window::{Event, VideoMode};
 
 use crate::counter::Counter;
 use crate::errors::BwgResult;
+use crate::physics::world::PhysicsWorld2D;
 
 use self::elements::info::Info;
 
@@ -64,11 +65,16 @@ pub struct ComprehensiveUi<'s> {
     pub info: Info<'s>,
     elements: HashMap<GElementID, Box<dyn ComprehensiveElement<'s>>>,
     pub counter: Counter,
+    pub physics_world: Option<PhysicsWorld2D<'s>>,
 }
 
 impl<'s> ComprehensiveUi<'s> {
     pub fn add_event(&mut self, event: &Event) {
         self.egui_window.add_event(event);
+
+        if let Some(world) = self.physics_world.as_mut() {
+            world.process_event(event, &self.counter, &mut self.info);
+        }
 
         for element in self.elements.values_mut() {
             element.process_event(event, &self.counter, &mut self.info);
@@ -91,8 +97,13 @@ impl<'s> ComprehensiveUi<'s> {
             info: Info::new(font, video, &counters),
             font,
             counter: counters,
+            physics_world: None,
         };
         Ok(gui)
+    }
+
+    pub fn set_world(&mut self, world: PhysicsWorld2D<'s>) {
+        self.physics_world = Some(world);
     }
 
     pub fn add(&mut self, element: Box<dyn ComprehensiveElement<'s>>) -> GElementID {
@@ -110,6 +121,9 @@ impl<'s> ComprehensiveUi<'s> {
     }
 
     pub fn draw_with(&mut self, window: &mut FBox<RenderWindow>) {
+        if let Some(world) = self.physics_world.as_mut() {
+            world.draw_with(window, &mut self.egui_window, &self.counter, &mut self.info);
+        }
         for element in self.elements.values_mut() {
             element.draw_with(window, &mut self.egui_window, &self.counter, &mut self.info);
         }
@@ -118,6 +132,9 @@ impl<'s> ComprehensiveUi<'s> {
     }
 
     pub fn update_slow(&mut self) {
+        if let Some(world) = self.physics_world.as_mut() {
+            world.update_slow(&self.counter, &mut self.info);
+        }
         for element in self.elements.values_mut() {
             element.update_slow(&self.counter, &mut self.info);
         }
@@ -125,6 +142,9 @@ impl<'s> ComprehensiveUi<'s> {
     }
 
     pub fn update(&mut self) {
+        if let Some(world) = self.physics_world.as_mut() {
+            world.update(&self.counter, &mut self.info);
+        }
         for element in self.elements.values_mut() {
             element.update(&self.counter, &mut self.info);
         }
