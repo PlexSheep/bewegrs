@@ -8,9 +8,6 @@ fn main() -> SfResult<()> {
     let video = VideoMode::desktop_mode();
     let mut window = RenderWindow::new(video, "Custom shape", Style::DEFAULT, &Default::default())?;
 
-    let mut font = Font::new()?;
-    font.load_from_memory_static(include_bytes!("../resources/sansation.ttf"))?;
-
     let texture = Texture::from_image(
         &*Image::from_memory(include_bytes!("../resources/logo.png"))?,
         IntRect::default(),
