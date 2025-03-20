@@ -42,7 +42,7 @@ const UPDATE_TIERS: &[(std::ops::Range<u8>, u64)] = &[
     (00..10, 1),  // From nearest star to nearest+10% - every frame
     (10..30, 2),  // From nearest+10% to nearest+30% - every 2 frames
     (30..60, 4),  // From nearest+30% to nearest+60% - every 4 frames
-    (60..100, 8), // From nearest+60% to end - every 8 frames
+    (60..100, 4), // From nearest+60% to end - every 4 frames
 ];
 
 // export this so that we can use benchmarks
@@ -514,18 +514,21 @@ impl Stars {
                 ranges_to_update.push((start, end));
             }
         }
+        if frame % 47 == 0 {
+            debug!("update_ranges {frame} (before merge): {ranges_to_update:?}");
+        }
 
         // Merge overlapping/sequential ranges
         let merged_ranges = Self::merge_ranges(&mut ranges_to_update, star_count);
 
         if frame % 47 == 0 {
-            debug!("update_ranges {frame} (before merge): {ranges_to_update:?}");
             debug!("update_ranges {frame} (after merge): {merged_ranges:?}");
         }
 
         // Validate ranges
         for range in &merged_ranges {
             assert!(range.1 <= star_count);
+            assert!(range.0 <= range.1);
         }
 
         merged_ranges
@@ -558,11 +561,18 @@ impl Stars {
 
         // Handle wrap-around case: if last range ends at star_count and first starts at 0
         if result.len() >= 2 {
-            let last_idx = result.len() - 1;
-            if result[last_idx].1 == star_count && result[0].0 == 0 {
-                // Merge the last range with the first
-                result[0].0 = result[last_idx].0;
-                result.pop();
+            for (current, next) in (0..star_count).zip(1..=star_count) {
+                if result.get(next).is_none() {
+                    break;
+                }
+                if result[current].0 == 0 || result[current].1 == star_count {
+                    continue;
+                }
+                if result[current].1 == result[next].0 {
+                    // Merge the current range with the next
+                    result[current].1 = result[next].1;
+                    result.remove(next);
+                }
             }
         }
 
