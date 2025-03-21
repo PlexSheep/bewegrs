@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use rapier2d::prelude::*;
+use sfml::graphics::{RectangleShape, RenderTarget, Shape, Transformable};
 use sfml::system::Vector2f;
 use sfml::window::Event;
 
@@ -96,8 +97,7 @@ impl<'s> PhysicsWorld2D<'s> {
             .insert(RigidBodyBuilder::new(element.rigid_body_type()));
 
         let size = translate_from_position(&element.get_collider_shape(), self.scale);
-        let mut coll =
-            ColliderBuilder::cuboid(size.translation.x / 2.0, size.translation.y / 2.0).build();
+        let mut coll = ColliderBuilder::cuboid(size.translation.x, size.translation.y).build();
         coll.set_position(translate_from_position(&element.get_position(), self.scale));
         let coll_h = self
             .collider_set
@@ -186,6 +186,33 @@ impl<'s> PhysicsWorld2D<'s> {
         counters: &Counter,
         info: &mut Info<'s>,
     ) {
+        // debug borders around actual graphic elemnts
+        for (id, (_colh, element)) in self.elements.iter() {
+            let position = self.get_position(id).unwrap();
+            let size = element.get_collider_shape();
+            let mut dbgbox = RectangleShape::new();
+            dbgbox.set_origin((10.0, 10.0)); // TODO: set center correctly
+            dbgbox.set_size(size * 1.05);
+            dbgbox.set_outline_color(sfml::graphics::Color::MAGENTA);
+            dbgbox.set_outline_thickness(0.7);
+            dbgbox.set_position(position);
+            dbgbox.set_fill_color(sfml::graphics::Color::TRANSPARENT);
+            sfml_w.draw(&dbgbox);
+        }
+        // debug borders around collision
+        for (id, (colh, _element)) in self.elements.iter() {
+            let coll = &self.collider_set[*colh];
+            let position = translate_to_position(coll.position(), self.scale);
+            let size: Vector2f = (20.0, 20.0).into(); // TODO: get size correctly
+            let mut dbgbox = RectangleShape::new();
+            dbgbox.set_origin((10.0, 10.0)); // TODO: set center correctly
+            dbgbox.set_size(size * 1.05);
+            dbgbox.set_outline_color(sfml::graphics::Color::CYAN);
+            dbgbox.set_outline_thickness(0.7);
+            dbgbox.set_position(position);
+            dbgbox.set_fill_color(sfml::graphics::Color::TRANSPARENT);
+            sfml_w.draw(&dbgbox);
+        }
         for (_colh, element) in self.elements.values_mut() {
             element.draw_with(sfml_w, egui_w, counters, info);
         }
