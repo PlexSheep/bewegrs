@@ -13,7 +13,7 @@ repository = { workspace = true }
 [dependencies]
 egui = "0.31.1"
 egui-sfml = "0.9.0"
-ringbuffer = "0.15.0"
+ringbuffer = "0.16.0"
 sfml = "0.24.0"
 tracing = { workspace = true }
 rand = { workspace = true }
