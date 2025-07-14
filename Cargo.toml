@@ -11,7 +11,7 @@ homepage = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-egui = "0.31.1"
+egui = "0.32.0"
 egui-sfml = "0.9.0"
 ringbuffer = "0.15.0"
 sfml = "0.24.0"
