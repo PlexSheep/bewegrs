@@ -94,7 +94,7 @@ dependencies = [
  "rand",
  "rapier2d",
  "ringbuffer",
- "sfml",
+ "sfml 0.25.0",
  "thiserror 2.0.12",
  "tracing",
  "tracing-subscriber",
@@ -341,7 +341,7 @@ checksum = "8adbb3c03fd69f1294dae50f904e545348f194d11453be7d7a853db9217c34cf"
 dependencies = [
  "egui",
  "glu-sys",
- "sfml",
+ "sfml 0.24.0",
 ]
 
 [[package]]
@@ -1051,6 +1051,21 @@ name = "sfml"
 version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "941169c8be33fd81c006591c0dff6056f94bca0bff6057a262ba946bdb6dc0ed"
+dependencies = [
+ "bitflags",
+ "cc",
+ "cmake",
+ "link-cplusplus",
+ "num-traits",
+ "pkg-config",
+ "widestring",
+]
+
+[[package]]
+name = "sfml"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47565b7287f2ed2395db868f0d74b783ceaa01ca930f42266df7ee669904e2ba"
 dependencies = [
  "bitflags",
  "cc",
